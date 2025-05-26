@@ -1,17 +1,18 @@
 import app from "./app.js";
-import { connectDB } from "./config/db.js";
+import  connectDB  from "./config/db.js";
 import { configDotenv } from 'dotenv';
 
 //Load Environment Variables
 configDotenv();
-
+const connectionString = process.env.MONGO_URI;
 const PORT = process.env.PORT || 5050;
 const NODE_ENV = process.env.NODE_ENV || "development";
+
 
 //Database Connection
 async function startServer() {
   try {
-    await connectDB();
+   await connectDB(connectionString);
     console.log("Database Connected Successfully");
 
     const server = app.listen(PORT, () => {
@@ -19,7 +20,7 @@ async function startServer() {
       console.log(`Environment: ${NODE_ENV}`);
       console.log(`server URL: http://localhost:${PORT}`);
     });
-    process.on(`SIGTERM`, () => {
+    process.once(`SIGTERM`, () => {
       console.log("SIGTERM received, shutting down gracefully");
       server.close(() => {
         console.log("process terminated");
