@@ -26,12 +26,11 @@ app.use("/uploads", express.static("./src/uploads"));
 //API REQUEST
 //app.use("/", productsRoute);
 
-app.use("/api", salesRecordRoutes);
-app.use("/api", orderRoutes);
-app.use("/api", customerRoutes);
-app.use("/api", invoiceRoutes);
-app.use("/api", authRoutes);
-
+app.use("/sales", salesRecordRoutes);
+app.use("/order", orderRoutes);
+app.use("/customer", customerRoutes);
+app.use("/invoice", invoiceRoutes);
+app.use("/auth", authRoutes);
 //Check endpoint
 
 app.get("/health", (req, res) => {

@@ -1,15 +1,26 @@
 import multer from "multer";
 import path from "path";
 import { AppError } from "../utils/appError.js";
+import { v4 as uuidv4 } from "uuid"; 
+import fs from "fs";
+
+const uploadDir = path.join(process.cwd(), "uploads");
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 
 // Configure storage for temporary files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
   },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname); // e.g., .jpg, .png
-    cb(null, `student-${req.params.id}-${Date.now()}${ext}`); // 
+ filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname); // .jpg, .png, etc.
+    // Create a unique filename using timestamp + UUID
+    const uniqueName = `admin-${Date.now()}-${uuidv4()}${ext}`;
+    cb(null, uniqueName);
   },
 });
 

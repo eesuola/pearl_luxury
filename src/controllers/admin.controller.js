@@ -3,7 +3,7 @@ import {
   registerAdmin,
   refreshTokenService,
   searchCustomer,
-} from "../services/admin.service.js";
+} from "../service/admin.service.js";
 import { AppError } from "../utils/appError.js";
 
 export const refreshToken = async (req, res, next) => {

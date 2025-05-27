@@ -18,7 +18,6 @@ const UserSchema = new Schema(
     },
     username: {
       type: String,
-      required: [true, "Enter your username"],
     },
     email: {
       type: String,
@@ -33,16 +32,27 @@ const UserSchema = new Schema(
     },
     role: String, //Admin, Customer
 
-    profilePicture: {
-      type: String,
-      validate: {
-        validator: function (v) {
-          return /^https?:\/\/.+\.(jpg|jpeg|png|gif)$/i.test(v);
-        },
-        message: (props) => `${props.value} is not a valid image URL!`,
-      },
-      default: "",
+  profilePicture: {
+  type: String,
+  validate: {
+    validator: function (v) {
+      if (!v) return true; // Allow empty profilePicture
+      
+      // Regex to allow:
+      // - Full URLs starting with http:// or https://
+      // - Relative paths starting with optional '/'
+      // - Filenames (e.g. 'image.jpg')
+      const urlRegex = /^(https?:\/\/)/i;
+      const relativePathRegex = /^\/?[\w\-./]+$/; 
+
+      return urlRegex.test(v) || relativePathRegex.test(v);
     },
+    message: (props) => `${props.value} is not a valid URL or relative path for profile picture`,
+  },
+  default: "https://via.placeholder.com/150",
+},
+
+
     passwordResetToken: {
       type: String,
     },

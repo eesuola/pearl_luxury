@@ -1,10 +1,9 @@
 import User from "../model/admin.model.js";
+import RefreshToken from "../model/refreshToken.js";
 import bcrypt from "bcrypt";
 import { AppError } from "../utils/appError.js";
 import { generateTokens } from "../utils/token.js";
-import crypto from 'crypto';
-
-
+import crypto from "crypto";
 
 export const register = async (userData, requestingUser) => {
   console.log(
@@ -17,8 +16,8 @@ export const register = async (userData, requestingUser) => {
     throw new AppError("Only admins can register users", 403);
   }
 
-  const { email, password, role } = userData;
-  if (!email || !password || !role) {
+  const { email, password, role, firstName, profilePicture } = userData;
+  if (!email || !password || !role || !firstName || !profilePicture) {
     throw new AppError("Email, password, and role are required", 400);
   }
 
@@ -26,22 +25,22 @@ export const register = async (userData, requestingUser) => {
     throw new AppError("Invalid role", 400);
   }
 
-  const existingUser = await User.findUnique({ where: { email } });
+  const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     throw new AppError("Email already exists", 400);
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await user.create({
-    data: {
-      email,
-      password: hashedPassword,
-      role,
-    },
+  const newUser = await User.create({
+    email,
+    password: hashedPassword,
+    role,
+    firstName: userData.firstName,
+    profilePicture:
+      userData.profilePicture || "https://via.placeholder.com/150", // or default
   });
-
-  const { accessToken, refreshToken } = await generateTokens(user);
-  return { user, accessToken, refreshToken };
+  const { accessToken, refreshToken } = await generateTokens(newUser);
+  return { newUser, accessToken, refreshToken };
 };
 
 export const createInitialAdmin = async (userData) => {
@@ -56,7 +55,7 @@ export const createInitialAdmin = async (userData) => {
     throw new AppError("Email and password are required", 400);
   }
 
-  const existingUser = await User.findUnique({ where: { email } });
+  const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     throw new AppError("Email already exists", 400);
   }
@@ -80,7 +79,7 @@ export const login = async (email, password) => {
     throw new AppError("Email and password are required", 400);
   }
 
-  const user = await User.findUnique({ where: { email } });
+  const user = await User.findOne({ where: { email } });
   if (!user) {
     throw new AppError("Invalid credentials", 401);
   }
@@ -93,14 +92,14 @@ export const login = async (email, password) => {
   const { accessToken, refreshToken } = await generateTokens(user);
   return { user, accessToken, refreshToken };
 };
-
 export const loginAdmin = async (email, password) => {
   console.log("LoginAdmin called for email:", email);
+
   if (!email || !password) {
     throw new AppError("Email and password are required", 400);
   }
 
-  const user = await User.findUnique({ where: { email } });
+  const user = await User.findOne({ email });
   if (!user || user.role !== "admin") {
     throw new AppError("Invalid admin credentials", 401);
   }
@@ -113,43 +112,66 @@ export const loginAdmin = async (email, password) => {
   const { accessToken, refreshToken } = await generateTokens(user);
   return { user, accessToken, refreshToken };
 };
+export const handleRefreshToken = async (refreshTokenValue) => {
+  console.log("RefreshToken called with token:", refreshTokenValue);
 
-export const refreshToken = async (refreshToken) => {
-  console.log("RefreshToken called with token:", refreshToken);
-  if (!refreshToken) {
+  if (!refreshTokenValue) {
     throw new AppError("Refresh token is required", 400);
   }
 
-  const tokenRecord = await refreshToken.findUnique({
-    where: { token: refreshToken },
-    include: { user: true },
-  });
+  const tokenRecord = await RefreshToken.findOne({ token: refreshTokenValue }).populate("user");
 
   if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
     throw new AppError("Invalid or expired refresh token", 401);
   }
 
-  const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
-    tokenRecord.user
-  );
-  await refreshToken.delete({ where: { token: refreshToken } });
+  const { accessToken, refreshToken: newRefreshToken } = await generateTokens(tokenRecord.user);
+
+  await RefreshToken.deleteOne({ token: refreshTokenValue });
 
   return { accessToken, refreshToken: newRefreshToken };
 };
 
-export const logout = async (refreshToken) => {
-  console.log("Logout called with token:", refreshToken);
-  if (!refreshToken) {
+// REFRESH TOKEN
+// export const handleRefreshToken = async (refreshTokenValue) => {
+//   console.log("RefreshToken called with token:", refreshTokenValue);
+
+//   if (!refreshTokenValue) {
+//     throw new AppError("Refresh token is required", 400);
+//   }
+
+//   const tokenRecord = await RefreshToken.findOne({
+//     token: refreshTokenValue,
+//   }).populate("user");
+
+//   if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
+//     throw new AppError("Invalid or expired refresh token", 401);
+//   }
+//   const { accessToken, refreshToken: newRefreshToken } = await generateTokens(
+//     tokenRecord.user
+//   );
+
+//   await refreshToken.deleteOne({ token: refreshTokenValue });
+
+//   return { accessToken, refreshToken: newRefreshToken };
+// };
+
+// LOGOUT
+export const logout = async (refreshTokenValue) => {
+  console.log("Logout called with token:", refreshTokenValue);
+
+  if (!refreshTokenValue) {
     throw new AppError("Refresh token is required", 400);
   }
 
-  await refreshToken.deleteMany({ where: { token: refreshToken } });
+  await RefreshToken.deleteMany({ token: refreshTokenValue });
 };
 
-
 export const generateResetToken = async (email) => {
-  const user = await User.findUnique({ where: { email } });
-  if (!user) {return null;}
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    return null;
+  }
   const resetToken = crypto.randomBytes(20).toString("hex");
   const expiresAt = new Date(Date.now() + 3600000); // 1 hour
   await resetToken.create({
@@ -158,13 +180,13 @@ export const generateResetToken = async (email) => {
       userId: user.id,
       expiresAt,
     },
-  })
+  });
   return resetToken;
-}
+};
 export const resetPassword = async (token, newPassword) => {
-  const resetToken = await resetToken.findUnique({ where: { token } });
+  const resetToken = await resetToken.findOne({ where: { token } });
   if (!resetToken || resetToken.expiresAt < new Date()) {
-   return null;
+    return null;
   }
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -174,6 +196,6 @@ export const resetPassword = async (token, newPassword) => {
     data: { password: hashedPassword }, // Save the hashed password
   });
 
-await resetToken.delete({ where: { token } });
-return user;
+  await resetToken.delete({ where: { token } });
+  return user;
 };

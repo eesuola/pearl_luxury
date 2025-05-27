@@ -21,13 +21,13 @@ export const generateTokens = async (admin) => {
 
   // Store refresh token in database
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  await refreshToken.create({
-    data: {
-      token: refreshToken,
-      adminId: admin.id,
-      expiresAt,
-    },
-  });
+  // await refreshToken.create({
+  //   data: {
+  //     token: refreshToken,
+  //     adminId: admin.id,
+  //     expiresAt,
+  //   },
+  // });
 
   return { accessToken, refreshToken };
 };

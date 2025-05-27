@@ -1,21 +1,29 @@
-import * as authService from "../services/auth.service.js";
+import * as authService from "../service/auth.service.js";
 import { AppError } from "../utils/appError.js";
 import nodemailer from "nodemailer";
 
 export const register = async (req, res, next) => {
-  console.log("Register endpoint hit with body:", req.body, "user:", req.user);
+  console.log(
+    "Register endpoint hit with body:",
+    req.body,
+    "user:",
+    req.newUser
+  );
   try {
-    const { email, password, role } = req.body;
+    const { email, password, role, firstName } = req.body;
+    // Get uploaded file path
+    const profilePicture = req.file ? `/uploads/${req.file.filename}` : null;
+
     if (!email || !password || !role) {
       throw new AppError("Email, password, and role are required", 400);
     }
-    const { user, accessToken, refreshToken } = await authService.register(
-      { email, password, role },
+    const { newUser, accessToken, refreshToken } = await authService.register(
+      { email, password, role, firstName, profilePicture },
       req.user
     );
     res.status(201).json({
       message: "User registered",
-      user: { id: user.id, email: user.email, role: user.role },
+      user: { id: newUser.id, email: newUser.email, role: newUser.role },
       accessToken,
       refreshToken,
     });
@@ -89,12 +97,14 @@ export const loginAdmin = async (req, res, next) => {
   }
 };
 
-export const refreshToken = async (req, res, next) => {
+export const handleRefreshToken = async (req, res, next) => {
   console.log("RefreshToken endpoint hit with body:", req.body);
   try {
     const { refreshToken } = req.body;
+    if (!refreshToken) throw new AppError("Refresh token is required", 400);
+
     const { accessToken, refreshToken: newRefreshToken } =
-      await authService.refreshToken(refreshToken);
+      await authService.handleRefreshToken(refreshToken); // corrected
     res.status(200).json({
       message: "Token refreshed",
       accessToken,
@@ -119,8 +129,9 @@ export const logout = async (req, res, next) => {
 };
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.mailtrap.io",
-  port: 2525,
+  host: process.env.MAIL_HOST,
+  port: process.env.MAIL_PORT,
+
   auth: {
     user: process.env.MAILTRAP_USER,
     pass: process.env.MAILTRAP_PASS,
@@ -145,24 +156,25 @@ export const forgotPassword = async (req, res, next) => {
       text: `Click this link to reset your password: ${resetLink}\n\nThis link expires in 1 hour. If you didn’t request this, ignore this email.`,
     };
     await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: 'Password reset link sent' });
-} catch (error) {
-    console.error('ForgotPassword error:', error);
+    res.status(200).json({ message: "Password reset link sent" });
+  } catch (error) {
+    console.error("ForgotPassword error:", error);
     next(error);
-}
+  }
 };
 
 export const resetPassword = async (req, res, next) => {
-try {
+  try {
     const { token, newPassword } = req.body;
-    if (!token || !newPassword) throw new AppError('Token and new password are required', 400);
+    if (!token || !newPassword)
+      throw new AppError("Token and new password are required", 400);
 
     const user = await authService.resetPassword(token, newPassword);
-    if (!user) throw new AppError('Invalid or expired token', 400);
+    if (!user) throw new AppError("Invalid or expired token", 400);
 
-    res.status(200).json({ message: 'Password reset successful' });
-} catch (error) {
-    console.error('ResetPassword error:', error);
+    res.status(200).json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("ResetPassword error:", error);
     next(error);
-}
+  }
 };
