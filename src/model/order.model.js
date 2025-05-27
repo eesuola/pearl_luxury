@@ -1,4 +1,4 @@
-import { getRandomValues } from "crypto";
+
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
@@ -36,7 +36,7 @@ const OrderSchema = new Schema(
       default: 0
     },
     status: {
-      type: string,
+      type: String,
       enum: ['active', 'pending', 'in-progress', 'completed', 'delivered'],
       default: 'pending'
     },

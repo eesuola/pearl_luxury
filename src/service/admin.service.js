@@ -1,40 +1,99 @@
-import bcrypt from "bcrypt";
 import User from "../model/admin.model.js";
+import { AppError } from "../utils/appError.js";
+import { generateTokens } from "../utils/token.js";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 
-import jwt from "jsonwebtoken";
+export const createAdmin = async (adminData, user) => {
+    console.log("CreateAdmin called with data:", adminData, "by user:", user);
+    if (user && user.role !== 'admin') {
+        throw new AppError("Only admins can create other admins", 403);
+    }
 
+    const { email, password, name } = adminData;
+    if (!email || !password || !name) {
+        throw new AppError("Email, password, and name are required", 400);
+    }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
+    const existingAdmin = await User.findOne({ email });
+    if (existingAdmin) {
+        throw new AppError("Email already exists", 400);
+    }
 
-export const registerAdmin = async (email, password, name) => {
-  const existingAdmin = await Admin.findUnique({ where: { email } });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newAdmin = await User.create({
+        email,
+        password: hashedPassword,
+        name,
+        role: 'admin',
+        profilePicture: "https://via.placeholder.com/150",
+    });
 
-  if (existingAdmin) {
-    throw new Error("Admin already exists");
-  }
+    return newAdmin;
+}
+export const updateAdmin = async (id, adminData, user) => {
+    console.log("UpdateAdmin called with id:", id, "data:", adminData, "by user:", user);
+    if (user && user.role !== 'admin') {
+        throw new AppError("Only admins can update other admins", 403);
+    }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+    const { email, password, name } = adminData;
+    if (!email || !password || !name) {
+        throw new AppError("Email, password, and name are required", 400);
+    }
 
-  const newAdmin = await Admin.create({
-    data: {
-      email,
-      password: hashedPassword,
-      name,
-    },
-  });
-  return newAdmin;
+    const admin = await User.findByPk(id);
+    if (!admin) {
+        throw new AppError("Admin not found", 404);
+    }
 
-  // const token = jwt.sign(
-  //   { id: admin.id, email: admin.email, role: "admin" },
-  //   JWT_SECRET,
-  //   { expiresIn: "1h" }
-  // );
-  // return { token };
-};
+    admin.email = email;
+    admin.name = name;
+    if (password) {
+        admin.password = await bcrypt.hash(password, 10);
+    }
+    await admin.save();
 
-// Generate access token and refresh token
+    return admin;
+}
+
+export const loginAdmin = async (email, password) => {
+    console.log("LoginAdmin called with email:", email);
+    if (!email || !password) {
+        throw new AppError("Email and password are required", 400);
+    }
+
+    const admin = await User.findOne({ email });
+    if (!admin) {
+        throw new AppError("Invalid email or password", 401);
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+        throw new AppError("Invalid email or password", 401);
+    }
+
+    const { accessToken, refreshToken } = generateTokens(admin);
+
+    return { admin, accessToken, refreshToken };
+}
+export const refreshAccessToken = async (refreshToken) => {
+    console.log("RefreshAccessToken called with token:", refreshToken);
+    if (!refreshToken) {
+        throw new AppError("Refresh token is required", 400);
+    }
+    const token = await RefreshToken.findOne({ token: refreshToken });
+    if (!token) {
+        throw new AppError("Invalid refresh token", 401);
+    }
+    const admin = await User.findByPk(token.userId);
+    if (!admin) {
+        throw new AppError("Admin not found", 404);
+    }
+    const { accessToken } = generateTokens(admin);
+    return { accessToken };
+}
+
 export const generateTokens = (admin) => {
   const payload = {
     id: admin.id,
@@ -49,27 +108,6 @@ export const generateTokens = (admin) => {
   return { accessToken, refreshToken };
 };
 
-export const logInAdmin = async (email, password) => {
-  try {
-    const admin = await admin.findUnique({ where: { email } }); // Assuming you're using Sequelize or a similar ORM
-    if (!admin) {
-      throw new Error("Invalid email or password");
-    }
-
-    const isPasswordCorrect = await bcrypt.compare(password, admin.password);
-    if (!isPasswordCorrect) {
-      throw new Error("Invalid Credentials");
-    }
-
-    const { accessToken, refreshToken } = generateTokens(admin); // Use your helper function
-
-    return { accessToken, refreshToken }; // Return tokens
-  } catch (error) {
-    throw new Error(error.message || "Login failed");
-  }
-};
-
-// Refresh token function - Generates a new access token using a valid refresh token
 export const refreshTokenService = async (refreshToken) => {
   try {
     const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET); // Verify refresh token
@@ -83,17 +121,21 @@ export const refreshTokenService = async (refreshToken) => {
     throw new Error("Invalid or expired refresh token");
   }
 };
+export const searchCustomers = async (query) => {
+    console.log("SearchCustomers called with query:", query);
+    if (!query) {
+        throw new AppError("Search query is required", 400);
+    }
 
-export const searchCustomer = async (customerData, query) => {
-  const customerData = await Customer.findMany({
-    where: {
-      OR: [
-        { phoneNumber: query.phoneNumber },
-        { name: { contains: query.name, mode: "insensitive" } },
-      ],
-    },
-    include: {
-      address: true,
-    },
-  });
-};
+    const customers = await User.findAll({
+        where: {
+            role: 'customer',
+            [Op.or]: [
+                { name: { [Op.like]: `%${query}%` } },
+                { email: { [Op.like]: `%${query}%` } },
+            ],
+        },
+    });
+
+    return customers;
+}
