@@ -1,0 +1,149 @@
+/* Validation feedback */
+input:invalid {
+  border-color: #e74c3c;
+  box-shadow: 0 0 5px #e74c3caa;
+}
+
+input:valid {
+  border-color: #2ecc71;
+  box-shadow: 0 0 5px #2ecc71aa;
+}
+
+/* Navigation Bar */
+nav {
+  background-color: #4a90e2;
+  padding: 1rem 2rem;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+nav .logo {
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+
+nav ul li a {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+nav ul li a:hover {
+  color: #d1eaff;
+}
+
+/* Dashboard Layout */
+.dashboard-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  background-color: #f1f7ff;
+  border-radius: 8px;
+  padding: 1rem 2rem;
+  flex: 1 1 150px;
+  text-align: center;
+  box-shadow: inset 0 0 8px #4a90e222;
+}
+
+.stat-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #4a90e2;
+}
+
+.stat-card p {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+/* Customer Table */
+.customer-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.customer-table thead {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.customer-table th, 
+.customer-table td {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.customer-table tbody tr:hover {
+  background-color: #f5faff;
+}
+
+/* Responsive Table */
+@media (max-width: 700px) {
+  .customer-table thead {
+    display: none;
+  }
+  
+  .customer-table, 
+  .customer-table tbody, 
+  .customer-table tr, 
+  .customer-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .customer-table tr {
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .customer-table td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+  }
+
+  .customer-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 1rem;
+    width: 45%;
+    padding-left: 0.5rem;
+    font-weight: 600;
+    text-align: left;
+  }
+}

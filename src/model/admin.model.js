@@ -5,7 +5,7 @@ const { Schema } = mongoose;
 
 const UserSchema = new Schema(
   {
-    firstName: {
+    name: {
       type: String,
       required: [true, "Please enter a first name"],
     },
@@ -13,12 +13,7 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    lastName: {
-      type: String,
-    },
-    username: {
-      type: String,
-    },
+
     email: {
       type: String,
       required: [true, "Please enter an email"],
@@ -32,26 +27,25 @@ const UserSchema = new Schema(
     },
     role: String, //Admin, Customer
 
-  profilePicture: {
-  type: String,
-  validate: {
-    validator: function (v) {
-      if (!v) return true; // Allow empty profilePicture
-      
-      // Regex to allow:
-      // - Full URLs starting with http:// or https://
-      // - Relative paths starting with optional '/'
-      // - Filenames (e.g. 'image.jpg')
-      const urlRegex = /^(https?:\/\/)/i;
-      const relativePathRegex = /^\/?[\w\-./]+$/; 
+    //   profilePicture: {
+    //   type: String,
+    //   validate: {
+    //     validator: function (v) {
+    //       if (!v) return true; // Allow empty profilePicture
 
-      return urlRegex.test(v) || relativePathRegex.test(v);
-    },
-    message: (props) => `${props.value} is not a valid URL or relative path for profile picture`,
-  },
-  default: "https://via.placeholder.com/150",
-},
+    //       // Regex to allow:
+    //       // - Full URLs starting with http:// or https://
+    //       // - Relative paths starting with optional '/'
+    //       // - Filenames (e.g. 'image.jpg')
+    //       const urlRegex = /^(https?:\/\/)/i;
+    //       const relativePathRegex = /^\/?[\w\-./]+$/;
 
+    //       return urlRegex.test(v) || relativePathRegex.test(v);
+    //     },
+    //     message: (props) => `${props.value} is not a valid URL or relative path for profile picture`,
+    //   },
+    //   default: "https://via.placeholder.com/150",
+    // },
 
     passwordResetToken: {
       type: String,

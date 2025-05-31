@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <nav>
+    <div class="logo">Pearl Luxury</div>
+    <ul>
+      <li><a href="admin-dashboard.html">Dashboard</a></li>
+      <li><a href="customer-register.html">Register Customer</a></li>
+      <li><a href="#" id="logoutBtn">Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="dashboard-container">
+    <header class="dashboard-header">
+      <h2>Welcome, Admin</h2>
+      <div class="stats">
+        <div class="stat-card">
+          <h3 id="totalCustomers">0</h3>
+          <p>Total Customers</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="recentRegistrations">0</h3>
+          <p>Registrations (last 7 days)</p>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h3>Customer List</h3>
+      <table class="customer-table" id="customerTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone Number</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Dynamic rows here -->
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+<script>
+  async function fetchCustomers() {
+    try {
+      const res = await fetch('/api/customers'); // Update your API route accordingly
+      if (!res.ok) throw new Error('Failed to fetch customers');
+      const customers = await res.json();
+
+      // Update stats
+      document.getElementById('totalCustomers').textContent = customers.length;
+
+      // Calculate recent registrations (last 7 days)
+      const recentCount = customers.filter(c => {
+        const regDate = new Date(c.createdAt); // assumes createdAt field
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return regDate >= sevenDaysAgo;
+      }).length;
+      document.getElementById('recentRegistrations').textContent = recentCount;
+
+      // Populate table
+      const tbody = document.getElementById('customerTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      customers.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td data-label="Name">${c.name}</td>
+          <td data-label="Phone Number">${c.phoneNumber}</td>
+          <td data-label="Role">${c.role}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+    } catch (error) {
+      alert(error.message);
+    }
+  }
+
+ document.getElementById('logoutBtn').addEventListener('click', async () => {
+  const res = await fetch('/api/logout', { method: 'POST' });
+  if (res.ok) {
+    window.location.href = '/admin-login.html';
+  } else {
+    alert('Logout failed');
+  }
+});
+
+  // On page load
+  fetchCustomers();
+</script>
+
+</body>
+</html>

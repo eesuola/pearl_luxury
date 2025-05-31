@@ -1,0 +1,49 @@
+<!-- customer-register.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Registration</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="form-container">
+    <h2>Customer Registration</h2>
+    <form id="customerForm">
+      <input type="text" name="name" placeholder="Customer Name" required />
+      <input type="text" name="phoneNumber" placeholder="Phone Number" required />
+      <input type="text" name="role" placeholder="Role" required />
+      <button type="submit">Register</button>
+    </form>
+    <p id="customerMessage"></p>
+  </div>
+
+  <script>
+    document.getElementById("customerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        name: form.name.value,
+        phoneNumber: form.phoneNumber.value,
+        role: form.role.value
+      };
+
+      const res = await fetch("http://localhost:5050/api/createCustomer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      const msg = document.getElementById("customerMessage");
+      if (res.ok) {
+        msg.textContent = "Customer registered successfully! Redirecting to measurement page...";
+        setTimeout(() => window.location.href = "/measurement.html", 2000);
+      } else {
+        const error = await res.json();
+        msg.textContent = error.message || "Registration failed.";
+      }
+    });
+  </script>
+</body>
+</html>

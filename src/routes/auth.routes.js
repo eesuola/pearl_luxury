@@ -2,7 +2,7 @@ import express from "express"; //Anytime you want to use a router , you have to 
 import rateLimit from 'express-rate-limit'
 import * as authController from "../controllers/auth.controller.js";
 import {authMiddleware} from "../middleware/auth.middleware.js";
-import {upload} from "../middleware/uploadMiddleware.js";
+
 
 
 
@@ -17,14 +17,19 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
   });
 
-routes.post("/register",loginLimiter,upload.single("profilePicture"), authController.register); // Admin-only
-routes.post("/initial-admin", authController.createInitialAdmin); // No auth for first admin
-routes.post("/login",loginLimiter, authController.login);
-routes.post("/admin/login",loginLimiter, authController.loginAdmin);
-routes.post("/refresh", authController.handleRefreshToken);
-routes.post("/logout", authMiddleware, authController.logout);
+// routes.post("/register",loginLimiter, authController.register); // Admin-only
+// routes.post("/login", loginLimiter, authController.login); // Admin-only
+// routes.post("/createCustomer", authController.createCustomer);
+// routes.delete("/deleteAllAccount", authController.deleteAccount);
+// routes.post("/logout", authController.logout);
 
-routes.post("/forgot-password", authController.forgotPassword);
-routes.post("/reset-password", authController.resetPassword);
+routes.post("/register", loginLimiter, authController.register);
+routes.post("/login", loginLimiter, authController.login);
+routes.post("/logout", authController.logout);
+routes.post("/createCustomer", authController.createCustomer);
+routes.get("/customers", authController.getCustomers);
+routes.delete("/deleteAllAccount", authController.deleteAccount);
+routes.post("/measurements", authController.saveMeasurement);
+
 
 export default routes;

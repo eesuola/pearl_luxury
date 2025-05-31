@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
-import bcryptjs from "bcryptjs"; // Replace 'bcrypt' with 'bcryptjs'
-import jwt from "jsonwebtoken";
+
 
 const { Schema } = mongoose;
 
@@ -22,77 +21,6 @@ const CustomerSchema = new Schema(
       city: String,
       state: String,
     },
-    measurements: {
-      //Basic Measurement
-      neck: Number,
-      shoulder: Number,
-      waist: Number,
-      halfLength: Number,
-
-      //Front/Back Measurement
-      acrossFront: Number,
-      acrossBack: Number,
-
-      //Bust Measurement
-      bust: Number,
-      bustCircumference: Number,
-      shoulderToNipple: Number,
-      bustSpan: Number,
-
-      //Under Bust Measurement
-      underBust: Number,
-      underBustCircumference: Number,
-      shoulderToUB: Number,
-
-      // Garment Length
-      blouseLength: Number,
-      dressLength: {
-        beforeKnee: Number,
-        onKnee: Number,
-        mid: Number,
-        long: Number,
-      },
-
-      //Arm Measurements
-      overArm: Number,
-      sleeves: {
-        sleeveLength: Number,
-        sleeveRound: Number,
-      },
-
-      //Skirt measurements
-      skirt: {
-        skirtLength: Number,
-        skirtWaist: Number,
-      },
-
-      //Hip Measurement
-      hipCircumference: {
-        upper: Number,
-        lower: Number,
-        hipLine: Number,
-      },
-
-      //Leg Measurements
-      roundThigh: Number,
-      knee: {
-        length: Number,
-        round: Number,
-      },
-
-      //Additional Measurement
-      bar: Number,
-
-      //Additional Data
-
-      notes: String,
-      lastUpdated: {
-        type: Date,
-        default: Date.now,
-      },
-      takenBy: String,
-    },
-
     //Fabrics for Clients
     preferredFabrics: [String],
     styePreference: String,
@@ -111,11 +39,11 @@ const CustomerSchema = new Schema(
     lastOrderDate: Date,
 
     //Status
-    status: {
-      type: String,
-      enum: ["Active", "Inactive"],
-      default: "active",
-    },
+    // status: {
+    //   type: String,
+    //   enum: ["Active", "Inactive"],
+    //   default: "active",
+    // },
     notes: String,
   },
   {
