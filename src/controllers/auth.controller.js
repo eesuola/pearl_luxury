@@ -1,9 +1,9 @@
 import User from "../model/admin.model.js";
 import Customer from "../model/customer.model.js";
-import Measurement from "../model/measurement.model.js";
 import { AppError } from "../utils/appError.js";
 import nodemailer from "nodemailer";
 import bcrypt from "bcryptjs"; // Use bcryptjs for compatibility
+
 
 export const register = async (req, res, next) => {
   console.log("Register endpoint hit with body:", req.body);
@@ -67,32 +67,83 @@ export const login = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 export const createCustomer = async (req, res, next) => {
   console.log("Create Customer endpoint hit with body:", req.body);
   try {
-    const { phoneNumber, name, role } = req.body;
+    const {name,phoneNumber, role, ...measurements} = req.body;
 
-    if (!phoneNumber || !role || !name) {
-      throw new AppError("Phone number, role, and name are required", 400);
+    if (!name || !phoneNumber || !role) {
+      throw new AppError("Name, phone number, and role are required", 400);
     }
 
-    // Check if customer already exists by phoneNumber
-    const existingCustomer = await Customer.findOne({ name });
+    const existingCustomer = await Customer.findOne({ phoneNumber });
     if (existingCustomer) {
       throw new AppError("Customer already exists", 400);
     }
-
-    // Create new customer (force role to "Customer" or accept role from request)
-    const customer = new Customer({ phoneNumber, name, role: "Customer" });
+    const customerData = {
+      name,
+      phoneNumber,
+      role: "Customer",
+      ...measurements,
+    }
+    const customer = new Customer(customerData);
     await customer.save();
-
-    // Redirect to measurement page for this customer
-    return res.redirect(`/measurement.html?customerId=${customer._id}`);
+    res.status(201).json({
+      message: "Customer created successfully",
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        role: customer.role,
+        measurements: customer.measurements,
+      },
+    });
   } catch (error) {
     console.error("Create Customer error:", error);
     next(error);
+    
   }
 };
+
+export const updateCustomer = async (req, res, next) => {
+  console.log("Update Customer endpoint hit with body:", req.body);
+  try {
+    const customerId = req.params.id;
+    const { name, phoneNumber, role, ...measurements } = req.body;
+
+    if (!name || !phoneNumber || !role) {
+      throw new AppError("Name, phone number, and role are required", 400);
+    }
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      throw new AppError("Customer not found", 404);
+    }
+
+    customer.name = name;
+    customer.phoneNumber = phoneNumber;
+    customer.role = role;
+    customer.measurements = measurements;
+
+    await customer.save();
+    res.status(200).json({
+      message: "Customer updated successfully",
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        role: customer.role,
+        measurements: customer.measurements,
+      },
+    });
+  } catch (error) {
+    console.error("Update Customer error:", error);
+    next(error);
+  }
+}
 export const getCustomers = async (req, res, next) => {
   console.log("Get Customers endpoint hit");
   try {
@@ -120,6 +171,19 @@ export const deleteAccount = async (req, res, next) => {
     next(error);
   }
 };
+export const deleteCustomerAccount = async (req, res, next) => {
+  console.log("Delete All Users endpoint hit");
+  try {
+    const result = await Customer.deleteMany({});
+    res.status(200).json({
+      message: "All customer deleted successfully",
+      result,
+    });
+  } catch (error) {
+    console.error("Delete All Users error:", error);
+    next(error);
+  }
+};
 
 export const logout = async (req, res) => {
   console.log("Logout endpoint hit");
@@ -134,22 +198,6 @@ export const logout = async (req, res) => {
   } catch (error) {
     console.error("Logout error:", error);
     res.status(500).json({ message: "Logout failed" });
-  }
-};
-
-export const saveMeasurement = async (req, res) => {
-  console.log("Save Measurement endpoint hit with body:", req.body);
-  try {
-    // Assuming you have a Measurement model for MongoDB/Mongoose or other DB ORM
-    const measurementData = req.body;
-
-    // Save measurementData to database
-    const savedMeasurement = await Measurement.create(measurementData);
-
-    res.status(201).json({ message: 'Measurement saved', data: savedMeasurement });
-  } catch (error) {
-    console.error('Error saving measurement:', error);
-    res.status(500).json({ error: 'Failed to save measurement' });
   }
 };
 

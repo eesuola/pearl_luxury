@@ -19,7 +19,7 @@
 
   <main class="dashboard-container">
     <header class="dashboard-header">
-      <h2>Welcome, Admin</h2>
+      <h2>Welcome, <span id="userName"></span></h2>
       <div class="stats">
         <div class="stat-card">
           <h3 id="totalCustomers">0</h3>
@@ -50,11 +50,20 @@
   </main>
 
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && user.name) {
+      document.getElementById("userName").textContent = user.name;
+    } else {
+      document.getElementById("userName").textContent = "User";
+    }
+  });
   async function fetchCustomers() {
     try {
       const res = await fetch('/api/customers'); // Update your API route accordingly
       if (!res.ok) throw new Error('Failed to fetch customers');
-      const customers = await res.json();
+      const data = await res.json();
+      const customers = data.customers;
 
       // Update stats
       document.getElementById('totalCustomers').textContent = customers.length;
@@ -89,6 +98,7 @@
  document.getElementById('logoutBtn').addEventListener('click', async () => {
   const res = await fetch('/api/logout', { method: 'POST' });
   if (res.ok) {
+    localStorage.removeItem("");
     window.location.href = '/admin-login.html';
   } else {
     alert('Logout failed');
@@ -96,7 +106,9 @@
 });
 
   // On page load
+
   fetchCustomers();
+
 </script>
 
 </body>

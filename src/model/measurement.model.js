@@ -80,7 +80,7 @@ const MeasurementSchema = new Schema(
 
     //Fabrics for Clients
     preferredFabrics: [String],
-    styePreference: String,
+    stylePreference: String,
     allergies: String,},
   {
     timeStamp: true,

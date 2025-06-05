@@ -1,9 +1,8 @@
-<!-- customer-register.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Customer Registration</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -11,9 +10,47 @@
   <div class="form-container">
     <h2>Customer Registration</h2>
     <form id="customerForm">
-      <input type="text" name="name" placeholder="Customer Name" required />
-      <input type="text" name="phoneNumber" placeholder="Phone Number" required />
-      <input type="text" name="role" placeholder="Role" required />
+      <input name="name" placeholder="Customer Name" required />
+      <input name="phoneNumber" placeholder="Phone Number" required />
+      <input name="role" placeholder="Role" value="Customer" readonly />
+
+      <h3>Measurements</h3>
+      <input name="neck" placeholder="Neck" />
+      <input name="shoulder" placeholder="Shoulder" />
+      <input name="waist" placeholder="Waist" />
+      <input name="halfLength" placeholder="Half Length" />
+      <input name="acrossFront" placeholder="Across Front" />
+      <input name="acrossBack" placeholder="Across Back" />
+      <input name="bust" placeholder="Bust" />
+      <input name="bustCircumference" placeholder="Bust Circumference" />
+      <input name="shoulderToNipple" placeholder="Shoulder to Nipple" />
+      <input name="bustSpan" placeholder="Bust Span" />
+      <input name="underBust" placeholder="Under Bust" />
+      <input name="underBustCircumference" placeholder="Under Bust Circumference" />
+      <input name="shoulderToUB" placeholder="Shoulder to Under Bust" />
+      <input name="blouseLength" placeholder="Blouse Length" />
+      <input name="dressLengthBeforeKnee" placeholder="Dress Length (Before Knee)" />
+      <input name="dressLengthOnKnee" placeholder="Dress Length (On Knee)" />
+      <input name="dressLengthMid" placeholder="Dress Length (Mid)" />
+      <input name="dressLengthLong" placeholder="Dress Length (Long)" />
+      <input name="overArm" placeholder="Over Arm" />
+      <input name="sleeveLength" placeholder="Sleeve Length" />
+      <input name="sleeveRound" placeholder="Sleeve Round" />
+      <input name="skirtLength" placeholder="Skirt Length" />
+      <input name="skirtWaist" placeholder="Skirt Waist" />
+      <input name="hipUpper" placeholder="Upper Hip Circumference" />
+      <input name="hipLower" placeholder="Lower Hip Circumference" />
+      <input name="hipLine" placeholder="Hip Line" />
+      <input name="roundThigh" placeholder="Round Thigh" />
+      <input name="kneeLength" placeholder="Knee Length" />
+      <input name="kneeRound" placeholder="Knee Round" />
+      <input name="bar" placeholder="Bar" />
+      <textarea name="notes" placeholder="Notes"></textarea>
+      <input name="takenBy" placeholder="Taken By" />
+      <input name="preferredFabrics" placeholder="Preferred Fabrics (comma-separated)" />
+      <input name="styePreference" placeholder="Style Preference" />
+      <input name="allergies" placeholder="Allergies" />
+
       <button type="submit">Register</button>
     </form>
     <p id="customerMessage"></p>
@@ -23,10 +60,56 @@
     document.getElementById("customerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.target;
+
       const data = {
         name: form.name.value,
         phoneNumber: form.phoneNumber.value,
-        role: form.role.value
+        role: form.role.value,
+        neck: form.neck.value,
+        shoulder: form.shoulder.value,
+        waist: form.waist.value,
+        halfLength: form.halfLength.value,
+        acrossFront: form.acrossFront.value,
+        acrossBack: form.acrossBack.value,
+        bust: form.bust.value,
+        bustCircumference: form.bustCircumference.value,
+        shoulderToNipple: form.shoulderToNipple.value,
+        bustSpan: form.bustSpan.value,
+        underBust: form.underBust.value,
+        underBustCircumference: form.underBustCircumference.value,
+        shoulderToUB: form.shoulderToUB.value,
+        blouseLength: form.blouseLength.value,
+        dressLength: {
+          beforeKnee: form.dressLengthBeforeKnee.value,
+          onKnee: form.dressLengthOnKnee.value,
+          mid: form.dressLengthMid.value,
+          long: form.dressLengthLong.value
+        },
+        overArm: form.overArm.value,
+        sleeves: {
+          sleeveLength: form.sleeveLength.value,
+          sleeveRound: form.sleeveRound.value
+        },
+        skirt: {
+          skirtLength: form.skirtLength.value,
+          skirtWaist: form.skirtWaist.value
+        },
+        hipCircumference: {
+          upper: form.hipUpper.value,
+          lower: form.hipLower.value,
+          hipLine: form.hipLine.value
+        },
+        roundThigh: form.roundThigh.value,
+        knee: {
+          length: form.kneeLength.value,
+          round: form.kneeRound.value
+        },
+        bar: form.bar.value,
+        notes: form.notes.value,
+        takenBy: form.takenBy.value,
+        preferredFabrics: form.preferredFabrics.value.split(',').map(f => f.trim()),
+        styePreference: form.styePreference.value,
+        allergies: form.allergies.value
       };
 
       const res = await fetch("http://localhost:5050/api/createCustomer", {
@@ -37,8 +120,11 @@
 
       const msg = document.getElementById("customerMessage");
       if (res.ok) {
-        msg.textContent = "Customer registered successfully! Redirecting to measurement page...";
-        setTimeout(() => window.location.href = "/measurement.html", 2000);
+        const result = await res.json();
+        msg.textContent = "Customer registered successfully!";
+        setTimeout(() => {
+          window.location.href = `/customer-dashboard.html?customerId=${result.customer._id}`;
+        }, 2000);
       } else {
         const error = await res.json();
         msg.textContent = error.message || "Registration failed.";

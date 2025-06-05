@@ -27,9 +27,10 @@ routes.post("/register", loginLimiter, authController.register);
 routes.post("/login", loginLimiter, authController.login);
 routes.post("/logout", authController.logout);
 routes.post("/createCustomer", authController.createCustomer);
+routes.put("/updateCustomer", authController.updateCustomer);
 routes.get("/customers", authController.getCustomers);
 routes.delete("/deleteAllAccount", authController.deleteAccount);
-routes.post("/measurements", authController.saveMeasurement);
+routes.delete("/deleteCustomerAccount", authController.deleteCustomerAccount);
 
 
 export default routes;

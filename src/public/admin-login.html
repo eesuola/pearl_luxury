@@ -32,8 +32,9 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-
+      const resData = await res.json();
    if (res.ok) {
+    localStorage.setItem("user", JSON.stringify(resData.admin)); // Save admin object
     window.location.href = "/admin-dashboard.html";
 } else {
   let errorMessage = "Login failed";
