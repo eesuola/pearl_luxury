@@ -4,7 +4,9 @@ import { authMiddleware } from "../middleware/auth.middleware.js";
 const routes = express.Router();
 
 // Order routes
-routes.post("/create-order", authMiddleware, orderController.createOrder);
+routes.post("/create-order", orderController.createOrder);
+routes.post("/generate-invoice/:orderId", orderController.generateInvoicePdf);
+
 
 
 

@@ -10,6 +10,11 @@ const OrderSchema = new Schema(
       required: [true, 'Customer Name is required'],
       trim: true
     },
+    customer : {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
+      required: [true, 'Kindly input customer details']
+    },
     customerPhone: String,
     customerAddress: String,
     orderDate: {
@@ -22,11 +27,11 @@ const OrderSchema = new Schema(
       quantity: String,
       price: Number,
     }],
-    measurement: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Customer',
-      required:[true, 'Kindly input customer Measurement']
-    },
+    // measurement: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: 'Customer',
+    //   required:[true, 'Kindly input customer Measurement']
+    // },
     totalAmount: {
       type: Number,
       required: [true, 'Kindly enter total amount']

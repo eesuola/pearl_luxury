@@ -1,44 +1,50 @@
-import Order from '../model/order.model.js';
-import Invoice from '../model/invoice.model.js';
-import { v4 as uuidv4 } from 'uuid';
+import Order from "../model/order.model.js";
+import Invoice from "../model/invoice.model.js";
+import { v4 as uuidv4 } from "uuid";
 const id = uuidv4();
 
-export const createOrder = async(req, res) => {
+export const createOrder = async (req, res) => {
     try {
-        const order = new Order(req.body);
+        const order = new Order({
+        customerName: req.body.customerName,
+        items: req.body.items,
+        totalAmount: req.body.totalAmount,
+        status: "pending",
+        });
         await order.save();
         res.status(201).send(order);
     } catch (error) {
-        res.status(403).json({ message: error.message });
-        
+        res.status(400).send({ message: error.message });
     }
-};
-
-export const generateInvoicePdf = async(req,res) => {
-    try {
-    const order =await Order.findById(req.params.orderId);
-    if(!order) {
-        return res.status(404).send({error: 'Order not found'})
+}
+export const generateInvoicePdf = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).send({ error: "Order not found" });
     }
     const invoice = new Invoice({
-        orderId: order._id,
-        invoiceNumber: `INV-${uuidv4().substring(0, 8)}`,
-        issueDate: new Date(),
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), //7 days time
-        items: order.items.map(item=>({
-            description: item.description,
-            quantity: item.quantity,
-            price: item.price,
-            amount: item.quantity * item.price
-        })),
-        subtotal: order.items.reduce((sum, item) => sum + (item.quantity * item.price), 0),
-        tax: 0,
-        total: order.totalAmount
+      orderId: order._id,
+      customer: order.customer || order.customerId,
+      invoiceNumber: `INV-${uuidv4().substring(0, 8)}`,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), //7 days time
+      items: order.items.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        price: item.price,
+        amount: item.quantity * item.price,
+      })),
+      subtotal: order.items.reduce(
+        (sum, item) => sum + item.quantity * item.price,
+        0
+      ),
+      tax: 0,
+      total: order.totalAmount,
     });
     await invoice.save();
     res.status(201).send(invoice);
-} catch(error) {
+  } catch (error) {
     res.status(400).send({ message: error.message });
-}
-}
-
+  }
+};

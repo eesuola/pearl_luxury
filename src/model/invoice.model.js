@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 const InvoiceSchema = new Schema(
   {
     invoiceNumber: {
-      type: Number,
+      type: String,
       required: true,
       unique: true,
     },
