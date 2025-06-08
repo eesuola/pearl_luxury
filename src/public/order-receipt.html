@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pearl Luxury</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.10/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    /* Validation feedback */
+    input:invalid {
+      border-color: #e74c3c;
+      box-shadow: 0 0 5px #e74c3caa;
+    }
+    input:valid {
+      border-color: #2ecc71;
+      box-shadow: 0 0 5px #2ecc71aa;
+    }
+    /* Navigation Bar */
+    nav {
+      background-color: #4a90e2;
+      padding: 1rem 2rem;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav .logo {
+      font-weight: 700;
+      font-size: 1.5rem;
+    }
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 1.5rem;
+    }
+    nav ul li a {
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.3s ease;
+    }
+    nav ul li a:hover {
+      color: #d1eaff;
+    }
+    /* Dashboard Layout */
+    .dashboard-container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .stat-card {
+      background-color: #f1f7ff;
+      border-radius: 8px;
+      padding: 1rem 2rem;
+      flex: 1 1 150px;
+      text-align: center;
+      box-shadow: inset 0 0 8px #4a90e222;
+    }
+    .stat-card h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: #4a90e2;
+    }
+    .stat-card p {
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+    /* Customer Table */
+    .customer-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .customer-table thead {
+      background-color: #4a90e2;
+      color: white;
+    }
+    .customer-table th, 
+    .customer-table td {
+      padding: 0.75rem 1rem;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    .customer-table tbody tr:hover {
+      background-color: #f5faff;
+    }
+    @media (max-width: 700px) {
+      .customer-table thead {
+        display: none;
+      }
+      .customer-table, 
+      .customer-table tbody, 
+      .customer-table tr, 
+      .customer-table td {
+        display: block;
+        width: 100%;
+      }
+      .customer-table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+      }
+      .customer-table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+      }
+      .customer-table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 1rem;
+        width: 45%;
+        padding-left: 0.5rem;
+        font-weight: 600;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { jsPDF } = window.jspdf;
+
+    axios.interceptors.request.use(config => {
+      return config;
+    }, error => Promise.reject(error));
+
+    const App = () => {
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [loginData, setLoginData] = useState({ email: '', password: '' });
+      const [errors, setErrors] = useState({});
+      const [success, setSuccess] = useState('');
+      const [user, setUser] = useState(null);
+
+      const checkSession = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/api/customers');
+          if (response.status === 200) {
+            setIsLoggedIn(true);
+            setUser(response.data.user || { role: 'admin' });
+          }
+        } catch (error) {
+          setIsLoggedIn(false);
+        }
+      };
+
+      useEffect(() => {
+        checkSession();
+      }, []);
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+          const response = await axios.post('http://localhost:5000/api/login', loginData);
+          setIsLoggedIn(true);
+          setUser(response.data.user);
+          setSuccess('Logged in successfully!');
+          setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+          setErrors({ login: error.response?.data.message || 'Invalid email or password' });
+        }
+      };
+
+      const handleLogout = async () => {
+        try {
+          await axios.post('http://localhost:5000/api/logout');
+          setIsLoggedIn(false);
+          setUser(null);
+        } catch (error) {
+          setErrors({ logout: 'Logout failed' });
+        }
+      };
+
+      if (!isLoggedIn) {
+        return (
+          <div className="container mx-auto p-4 max-w-md">
+            <h1 className="text-2xl font-bold mb-4">Admin Login</h1>
+            {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+            {errors.login && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.login}</div>}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Email</label>
+                <input
+                  type="email"
+                  value={loginData.email}
+                  onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                  className="mt-1 p-2 border w-full"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Password</label>
+                <input
+                  type="password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  className="mt-1 p-2 border w-full"
+                  required
+                />
+              </div>
+              <button type="submit" className="bg-blue-500 text-white p-2 w-full">Login</button>
+            </form>
+          </div>
+        );
+      }
+
+      return <Dashboard onLogout={handleLogout} user={user} />;
+    };
+
+    const Dashboard = ({ onLogout, user }) => {
+      const [activeView, setActiveView] = useState('home');
+      const [customers, setCustomers] = useState([]);
+      const [totalRegistrations, setTotalRegistrations] = useState(0);
+
+      const fetchCustomers = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/api/customers');
+          setCustomers(response.data.customers);
+          const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          setTotalRegistrations(response.data.customers.filter(c => new Date(c.createdAt) >= lastWeek).length);
+        } catch (error) {
+          console.error('Error fetching customers:', error);
+        }
+      };
+
+      useEffect(() => {
+        if (['home', 'all-customers', 'search-customers', 'register-customer'].includes(activeView)) {
+          fetchCustomers();
+        }
+      }, [activeView]);
+
+      return (
+        <div>
+          <nav>
+            <div className="logo">Pearl Luxury</div>
+            <ul>
+              <li><a href="#" onClick={() => setActiveView('home')}>Dashboard</a></li>
+              <li><a href="#" onClick={() => setActiveView('invoice')}>Create Invoice</a></li>
+              <li><a href="#" onClick={() => setActiveView('receipt')}>Create Receipt</a></li>
+              <li><a href="#" onClick={() => setActiveView('all-customers')}>All Customers</a></li>
+              <li><a href="#" onClick={() => setActiveView('search-customers')}>Search Customers</a></li>
+              <li><a href="#" onClick={() => setActiveView('register-customer')}>Register Customer</a></li>
+              <li><a href="#" onClick={() => setActiveView('create-order')}>Create Order</a></li>
+              <li><a href="#" onClick={onLogout}>Logout</a></li>
+            </ul>
+          </nav>
+          <div className="dashboard-container">
+            {activeView === 'home' && <Home customers={customers} totalRegistrations={totalRegistrations} />}
+            {activeView === 'invoice' && <InvoiceCreation />}
+            {activeView === 'receipt' && <ReceiptCreation />}
+            {activeView === 'all-customers' && <AllCustomers customers={customers} />}
+            {activeView === 'search-customers' && <SearchCustomers />}
+            {activeView === 'register-customer' && <RegisterCustomer />}
+            {activeView === 'create-order' && <OrderForm />}
+          </div>
+        </div>
+      );
+    };
+
+    const Home = ({ customers, totalRegistrations }) => (
+      <div>
+        <div className="dashboard-header">
+          <h2 className="text-xl font-semibold">Welcome, Admin</h2>
+        </div>
+        <div className="stats">
+          <div className="stat-card">
+            <h3>Total Customers</h3>
+            <p>{customers.length}</p>
+          </div>
+          <div className="stat-card">
+            <h3>Registrations (last 7 days)</h3>
+            <p>{totalRegistrations}</p>
+          </div>
+        </div>
+        <h2 className="text-xl font-semibold mt-4 mb-2">Customer List</h2>
+        <table className="customer-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone Number</th>
+              <th>Role</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customers.map((customer) => (
+              <tr key={customer._id}>
+                <td data-label="Name">{customer.name}</td>
+                <td data-label="Phone Number">{customer.phoneNumber}</td>
+                <td data-label="Role">{customer.role}</td>
+                <td data-label="Action">
+                  <button
+                    onClick={() => window.location.href = `#view-customer-${customer._id}`}
+                    className="bg-blue-500 text-white p-1"
+                  >
+                    View Details
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    const InvoiceCreation = () => {
+      const [orders, setOrders] = useState([]);
+      const [orderId, setOrderId] = useState(null);
+      const [errors, setErrors] = useState({});
+      const [success, setSuccess] = useState('');
+
+      const fetchOrders = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/order/get-orders');
+          setOrders(response.data);
+        } catch (error) {
+          setErrors({ fetch: 'Error fetching orders: ' + (error.response?.data.message || error.message) });
+        }
+      };
+
+      useEffect(() => {
+        fetchOrders();
+      }, []);
+
+      const generatePDF = async () => {
+        if (!orderId) {
+          setErrors({ submit: 'Please select an order to generate an invoice.' });
+          return;
+        }
+        try {
+          const response = await axios.post(`http://localhost:5000/order/generate-invoice/${orderId}`);
+          const invoice = response.data;
+          const doc = new jsPDF();
+          doc.setFontSize(18);
+          doc.text('Invoice', 20, 20);
+          doc.setFontSize(12);
+          doc.text(`Invoice Number: ${invoice.invoiceNumber}`, 20, 30);
+          doc.text(`Customer: ${invoice.customer}`, 20, 40);
+          doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}`, 20, 50);
+          doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 60);
+          doc.text('Items:', 20, 70);
+          let y = 80;
+          invoice.items.forEach((item, index) => {
+            doc.text(`${index + 1}. ${item.description} - Qty: ${item.quantity} - Price: ₦${item.price} - Total: ₦${item.amount}`, 20, y);
+            y += 10;
+          });
+          doc.text(`Subtotal: ₦${invoice.subtotal}`, 20, y);
+          doc.text(`Tax: ₦${invoice.tax}`, 20, y + 10);
+          doc.text(`Total: ₦${invoice.total}`, 20, y + 20);
+          doc.save(`invoice_${invoice.invoiceNumber}.pdf`);
+          setSuccess('Invoice generated successfully!');
+          setTimeout(() => setSuccess(''), 3000);
+        } catch (error) {
+          setErrors({ submit: 'Error generating invoice: ' + (error.response?.data.message || error.message) });
+        }
+      };
+
+      return (
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Create Invoice</h2>
+          {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+          {errors.submit && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.submit}</div>}
+          {errors.fetch && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.fetch}</div>}
+          <button
+            onClick={fetchOrders}
+            className="bg-blue-500 text-white p-2 mb-4"
+          >
+            Refresh Orders
+          </button>
+          {orders.length > 0 ? (
+            <div>
+              <select
+                onChange={(e) => setOrderId(e.target.value)}
+                className="p-2 border mb-4"
+              >
+                <option value="">Select an order</option>
+                {orders.map((order) => (
+                  <option key={order._id} value={order._id}>
+                    {order.customerName} - ₦{order.totalAmount} ({new Date(order.orderDate).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={generatePDF}
+                className="bg-blue-500 text-white p-2"
+                disabled={!orderId}
+              >
+                Generate Invoice PDF
+              </button>
+            </div>
+          ) : (
+            <p>No orders found. Create an order first.</p>
+          )}
+        </div>
+      );
+    };
+
+    const ReceiptCreation = () => {
+      const [receipt, setReceipt] = useState({
+        customer: '',
+        amountPaid: '',
+        paymentMethod: 'bank_transfer',
+        notes: '',
+        invoiceId: '',
+      });
+      const [invoices, setInvoices] = useState([]);
+      const [errors, setErrors] = useState({});
+      const [success, setSuccess] = useState('');
+
+      const fetchInvoices = async () => {
+        try {
+          const response = await axios.get('http://localhost:5000/invoice/get-invoices');
+          setInvoices(response.data);
+        } catch (error) {
+          console.error('Error fetching invoices:', error);
+        }
+      };
+
+      useEffect(() => {
+        fetchInvoices();
+      }, []);
+
+      const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setReceipt({ ...receipt, [name]: value });
+      };
+
+      const validateForm = () => {
+        const newErrors = {};
+        if (!receipt.customer.trim()) newErrors.customer = 'Customer name is required';
+        if (!receipt.amountPaid || receipt.amountPaid <= 0) newErrors.amountPaid = 'Valid amount is required';
+        if (!receipt.paymentMethod) newErrors.paymentMethod = 'Payment method is required';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+        try {
+          const response = await axios.post('http://localhost:5000/invoice/create-receipt', receipt);
+          setSuccess('Receipt created successfully! Receipt Number: ' + response.data.receipt.receiptNumber);
+          setTimeout(() => setSuccess(''), 5000);
+          setReceipt({
+            customer: '',
+            amountPaid: '',
+            paymentMethod: 'bank_transfer',
+            notes: '',
+            invoiceId: '',
+          });
+        } catch (error) {
+          setErrors({ submit: 'Error creating receipt: ' + (error.response?.data.message || error.message) });
+        }
+      };
+
+      return (
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Create Receipt</h2>
+          {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+          {errors.submit && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.submit}</div>}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Customer Name</label>
+              <input
+                type="text"
+                name="customer"
+                value={receipt.customer}
+                onChange={handleInputChange}
+                className="mt-1 p-2 border w-full"
+              />
+              {errors.customer && <p className="text-red-500 text-sm">{errors.customer}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Amount Paid</label>
+              <input
+                type="number"
+                name="amountPaid"
+                value={receipt.amountPaid}
+                onChange={handleInputChange}
+                className="mt-1 p-2 border w-full"
+              />
+              {errors.amountPaid && <p className="text-red-500 text-sm">{errors.amountPaid}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Payment Method</label>
+              <select
+                name="paymentMethod"
+                value={receipt.paymentMethod}
+                onChange={handleInputChange}
+                className="mt-1 p-2 border w-full"
+              >
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash</option>
+                <option value="mobile_money">Mobile Money</option>
+              </select>
+              {errors.paymentMethod && <p className="text-red-500 text-sm">{errors.paymentMethod}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Invoice (Optional)</label>
+              <select
+                name="invoiceId"
+                value={receipt.invoiceId}
+                onChange={handleInputChange}
+                className="mt-1 p-2 border w-full"
+              >
+                <option value="">None</option>
+                {invoices.map((invoice) => (
+                  <option key={invoice._id} value={invoice._id}>
+                    {invoice.invoiceNumber} - {invoice.customer}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Notes</label>
+              <textarea
+                name="notes"
+                value={receipt.notes}
+                onChange={handleInputChange}
+                className="mt-1 p-2 border w-full"
+              />
+            </div>
+            <button type="submit" className="bg-green-500 text-white p-2">Create Receipt</button>
+        </form>
+      </div>
+    );
+  };
+
+  const AllCustomers = ({ customers }) => {
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [errors, setErrors] = useState({});
+
+    const fetchCustomerDetails = async (customerId) => {
+      try {
+        const response = await axios.get(`http://localhost:5000/api/customers/${customerId}`);
+        setSelectedCustomer(response.data.customer);
+      } catch (error) {
+        setErrors({ fetch: 'Error fetching customer details: ' + (error.response?.data.message || error.message) });
+      }
+    };
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold mb-2">All Customers</h2>
+        {errors.fetch && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.fetch}</div>}
+        {customers.length > 0 ? (
+          <table className="customer-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone Number</th>
+                <th>Role</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((customer) => (
+                <tr key={customer._id}>
+                  <td data-label="Name">{customer.name}</td>
+                  <td data-label="Phone Number">{customer.phoneNumber}</td>
+                  <td data-label="Role">{customer.role}</td>
+                  <td data-label="Action">
+                    <button
+                      onClick={() => fetchCustomerDetails(customer._id)}
+                      className="bg-blue-500 text-white p-1"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No customers found.</p>
+        )}
+        {selectedCustomer && (
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold">Customer Details</h3>
+            <p><strong>Name:</strong> {selectedCustomer.name}</p>
+            <p><strong>Phone:</strong> {selectedCustomer.phoneNumber}</p>
+            <p><strong>Address:</strong> {selectedCustomer.address || 'N/A'}</p>
+            <p><strong>Total Orders:</strong> {selectedCustomer.totalOrders}</p>
+            <p><strong>Total Spent:</strong> ₦{selectedCustomer.totalSpent}</p>
+            <p><strong>Eligible for Discount:</strong> {selectedCustomer.totalSpent >= 50000 ? 'Yes - 10%' : 'No'}</p>
+            <h4 className="text-md font-semibold mt-2">Measurements</h4>
+            {selectedCustomer.measurements && selectedCustomer.measurements.length > 0 ? (
+              selectedCustomer.measurements.map((measurement, index) => (
+                <div key={index} className="border p-2 mb-2">
+                  <p><strong>Measurement Set {index + 1}</strong></p>
+                  <p><strong>Bust:</strong> {measurement.bust || 'N/A'} in</p>
+                  <p><strong>Waist:</strong> {measurement.waist || 'N/A'} in</p>
+                  <p><strong>Hip:</strong> {measurement.hipCircumference?.upper || 'N/A'} in</p>
+                  <p><strong>Notes:</strong> {measurement.notes || 'N/A'}</p>
+                </div>
+              ))
+            ) : (
+              <p>No measurements found.</p>
+            )}
+            <button
+              onClick={() => setSelectedCustomer(null)}
+              className="bg-gray-500 text-white p-2 mt-2"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const SearchCustomers = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [customers, setCustomers] = useState([]);
+    const [errors, setErrors] = useState({});
+    const [success, setSuccess] = useState('');
+
+    const handleSearch = async (e) => {
+      e.preventDefault();
+      if (!searchTerm.trim()) {
+        setErrors({ search: 'Please enter a name to search' });
+        return;
+      }
+      try {
+        const response = await axios.get(`http://localhost:5000/api/customers/search/${searchTerm}`);
+        setCustomers(response.data.customers);
+        setSuccess('Search completed!');
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (error) {
+        setErrors({ search: 'Error searching customers: ' + (error.response?.data.message || error.message) });
+      }
+    };
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Search Customers by Name</h2>
+        {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+        {errors.search && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.search}</div>}
+        <form onSubmit={handleSearch} className="mb-4">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Enter customer name"
+            className="p-2 border mr-2"
+          />
+          <button type="submit" className="bg-blue-500 text-white p-2">Search</button>
+        </form>
+        {customers.length > 0 ? (
+          <table className="customer-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone Number</th>
+                <th>Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((customer) => (
+                <tr key={customer._id}>
+                  <td data-label="Name">{customer.name}</td>
+                  <td data-label="Phone Number">{customer.phoneNumber}</td>
+                  <td data-label="Role">{customer.role}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No customers found.</p>
+        )}
+      </div>
+    );
+  };
+
+  const RegisterCustomer = () => {
+    const [customer, setCustomer] = useState({
+      name: '',
+      phoneNumber: '',
+      role: 'Customer',
+      address: '',
+      bust: '',
+      waist: '',
+      hipCircumference: { upper: '' },
+      notes: '',
+      preferredFabrics: '',
+      stylePreference: '',
+      allergies: '',
+    });
+    const [errors, setErrors] = useState({});
+    const [success, setSuccess] = useState('');
+
+    const handleInputChange = (e) => {
+      const { name, value } = e.target;
+      if (name.includes('hipCircumference.')) {
+        const field = name.split('.')[1];
+        setCustomer({
+          ...customer,
+          hipCircumference: { ...customer.hipCircumference, [field]: value },
+        });
+      } else {
+        setCustomer({ ...customer, [name]: value });
+      }
+    };
+
+    const validateForm = () => {
+      const newErrors = {};
+      if (!customer.name.trim()) newErrors.name = 'Name is required';
+      if (!customer.phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required';
+      if (customer.bust && isNaN(customer.bust)) newErrors.bust = 'Bust must be a number';
+      if (customer.waist && isNaN(customer.waist)) newErrors.waist = 'Waist must be a number';
+      if (customer.hipCircumference.upper && isNaN(customer.hipCircumference.upper)) {
+        newErrors.hipCircumference = 'Hip circumference must be a number';
+      }
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!validateForm()) return;
+      try {
+        const customerData = {
+          ...customer,
+          preferredFabrics: customer.preferredFabrics.split(',').map(f => f.trim()).filter(f => f),
+        };
+        const response = await axios.post('http://localhost:5000/api/createCustomer', customerData);
+        setSuccess('Customer registered successfully! ID: ' + response.data.customer.id);
+        setTimeout(() => setSuccess(''), 5000);
+        setCustomer({
+          name: '',
+          phoneNumber: '',
+          role: 'Customer',
+          address: '',
+          bust: '',
+          waist: '',
+          hipCircumference: { upper: '' },
+          notes: '',
+          preferredFabrics: '',
+          stylePreference: '',
+          allergies: '',
+        });
+      } catch (error) {
+        setErrors({ submit: 'Error registering customer: ' + (error.response?.data.message || error.message) });
+      }
+    };
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Register Customer</h2>
+        {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+        {errors.submit && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.submit}</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={customer.name}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+              required
+            />
+            {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Phone Number</label>
+            <input
+              type="text"
+              name="phoneNumber"
+              value={customer.phoneNumber}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+              required
+            />
+            {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Address</label>
+            <input
+              type="text"
+              name="address"
+              value={customer.address}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Bust (in)</label>
+            <input
+              type="number"
+              name="bust"
+              value={customer.bust}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+            {errors.bust && <p className="text-red-500 text-sm">{errors.bust}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Waist (in)</label>
+            <input
+              type="number"
+              name="waist"
+              value={customer.waist}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+            {errors.waist && <p className="text-red-500 text-sm">{errors.waist}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Upper Hip Circumference (in)</label>
+            <input
+              type="number"
+              name="hipCircumference.upper"
+              value={customer.hipCircumference.upper}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+            {errors.hipCircumference && <p className="text-red-500 text-sm">{errors.hipCircumference}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Notes</label>
+            <textarea
+              name="notes"
+              value={customer.notes}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Preferred Fabrics (comma-separated)</label>
+            <input
+              type="text"
+              name="preferredFabrics"
+              value={customer.preferredFabrics}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Style Preference</label>
+            <input
+              type="text"
+              name="stylePreference"
+              value={customer.stylePreference}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Allergies</label>
+            <input
+              type="text"
+              name="allergies"
+              value={customer.allergies}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+          </div>
+          <button type="submit" className="bg-green-500 text-white p-2">Register Customer</button>
+        </form>
+      </div>
+    );
+  };
+
+  const OrderForm = () => {
+    const [order, setOrder] = useState({
+      customerName: '',
+      items: [{ description: '', quantity: '', price: '' }],
+      totalAmount: 0,
+    });
+    const [errors, setErrors] = useState({});
+    const [success, setSuccess] = useState('');
+
+    const handleInputChange = (e, index) => {
+      const { name, value } = e.target;
+      if (index !== undefined) {
+        const newItems = [...order.items];
+        newItems[index][name] = value;
+        setOrder({ ...order, items: newItems });
+        calculateTotal(newItems);
+      } else {
+        setOrder({ ...order, [name]: value });
+      }
+    };
+
+    const addItem = () => {
+      setOrder({
+        ...order,
+        items: [...order.items, { description: '', quantity: '', price: '' }],
+      });
+    };
+
+    const removeItem = (index) => {
+      const newItems = order.items.filter((_, i) => i !== index);
+      setOrder({ ...order, items: newItems });
+      calculateTotal(newItems);
+    };
+
+    const calculateTotal = (items = order.items) => {
+      const total = items.reduce((sum, item) => {
+        const price = parseFloat(item.price) || 0;
+        const quantity = parseFloat(item.quantity) || 0;
+        return sum + price * quantity;
+      }, 0);
+      setOrder((prev) => ({ ...prev, totalAmount: total }));
+    };
+
+    const validateForm = () => {
+      const newErrors = {};
+      if (!order.customerName.trim()) newErrors.customerName = 'Customer Name is required';
+      if (!order.totalAmount) newErrors.totalAmount = 'Total amount is required';
+      order.items.forEach((item, index) => {
+        if (!item.description) newErrors[`itemDescription${index}`] = 'Description is required';
+        if (!item.quantity) newErrors[`itemQuantity${index}`] = 'Quantity is required';
+        if (!item.price) newErrors[`itemPrice${index}`] = 'Price is required';
+      });
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!validateForm()) return;
+      try {
+        const response = await axios.post('http://localhost:5000/order/create-order', order);
+        setSuccess('Order saved successfully! Order ID: ' + response.data._id);
+        setTimeout(() => setSuccess(''), 5000);
+        setOrder({
+          customerName: '',
+          items: [{ description: '', quantity: '', price: '' }],
+          totalAmount: 0,
+        });
+      } catch (error) {
+        setErrors({ submit: 'Error saving order: ' + (error.response?.data.message || error.message) });
+      }
+    };
+
+    return (
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Create New Order</h2>
+        {success && <div className="bg-green-100 text-green-700 p-2 mb-4">{success}</div>}
+        {errors.submit && <div className="bg-red-100 text-red-700 p-2 mb-4">{errors.submit}</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Customer Name</label>
+            <input
+              type="text"
+              name="customerName"
+              value={order.customerName}
+              onChange={handleInputChange}
+              className="mt-1 p-2 border w-full"
+            />
+            {errors.customerName && <p className="text-red-500 text-sm">{errors.customerName}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Items</label>
+            {order.items.map((item, index) => (
+              <div key={index} className="flex space-x-2 mt-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    name="description"
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => handleInputChange(e, index)}
+                    className="p-2 border w-full"
+                  />
+                  {errors[`itemDescription${index}`] && (
+                    <p className="text-red-500 text-sm">{errors[`itemDescription${index}`]}</p>
+                  )}
+                </div>
+                <div className="w-24">
+                  <input
+                    type="number"
+                    name="quantity"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={(e) => handleInputChange(e, index)}
+                    className="p-2 border w-full"
+                  />
+                  {errors[`itemQuantity${index}`] && (
+                    <p className="text-red-500 text-sm">{errors[`itemQuantity${index}`]}</p>
+                  )}
+                </div>
+                <div className="w-24">
+                  <input
+                    type="number"
+                    name="price"
+                    placeholder="Price"
+                    value={item.price}
+                    onChange={(e) => handleInputChange(e, index)}
+                    className="p-2 border w-full"
+                  />
+                  {errors[`itemPrice${index}`] && (
+                    <p className="text-red-500 text-sm">{errors[`itemPrice${index}`]}</p>
+                  )}
+                </div>
+                {order.items.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeItem(index)}
+                    className="bg-red-500 text-white p-2"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addItem}
+              className="mt-2 bg-blue-500 text-white p-2"
+            >
+              Add Item
+            </button>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Total Amount</label>
+            <input
+              type="number"
+              name="totalAmount"
+              value={order.totalAmount}
+              readOnly
+              className="mt-1 p-2 border w-full bg-gray-100"
+            />
+            {errors.totalAmount && <p className="text-red-500 text-sm">{errors.totalAmount}</p>}
+          </div>
+          <button type="submit" className="bg-green-500 text-white p-2">Save Order</button>
+        </form>
+      </div>
+    );
+  };
+
+  ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

@@ -1,55 +1,31 @@
-
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
-const OrderSchema = new Schema(
-  {
-    customerName:{
-      type: String,
-      required: [true, 'Customer Name is required'],
-      trim: true
-    },
-    customer : {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Customer',
-      required: [true, 'Kindly input customer details']
-    },
-    customerPhone: String,
-    customerAddress: String,
-    orderDate: {
-      type: Date,
-      default: Date.now
-    },
-    deliveryDate: Date,
-    items: [{
-      description: String,
-      quantity: String,
-      price: Number,
-    }],
-    // measurement: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: 'Customer',
-    //   required:[true, 'Kindly input customer Measurement']
-    // },
-    totalAmount: {
-      type: Number,
-      required: [true, 'Kindly enter total amount']
-    },
-    advancedPaid:{
-      type: Number,
-      default: 0
-    },
-    status: {
-      type: String,
-      enum: ['active', 'pending', 'in-progress', 'completed', 'delivered'],
-      default: 'pending'
-    },
-    notes: String
-    
+const OrderSchema = new Schema({
+  customerName: {
+    type: String,
+    required: [true, "Customer name is required"],
   },
-  { timeStamp: true }
-);
+  items: [{
+    description: String,
+    quantity: Number,
+    price: Number,
+  }],
+  totalAmount: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "completed", "cancelled"],
+    default: "pending",
+  },
+  orderDate: {
+    type: Date,
+    default: Date.now,
+  },
+}, { timestamps: true });
 
 const Order = mongoose.model("Order", OrderSchema);
 export default Order;

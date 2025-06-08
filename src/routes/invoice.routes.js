@@ -7,6 +7,7 @@ const routes = express.Router();
 
 routes.post("/create-invoice", invoiceController.createInvoice);
 routes.post("/invoice/:invoiceId/receipt", authMiddleware, invoiceController.createInvoice);
+//routes.post("/create-receipt", authMiddleware, invoiceController.createReceipt);
 
 
 

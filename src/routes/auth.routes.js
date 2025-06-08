@@ -27,8 +27,10 @@ routes.post("/register", loginLimiter, authController.register);
 routes.post("/login", loginLimiter, authController.login);
 routes.post("/logout", authController.logout);
 routes.post("/createCustomer", authController.createCustomer);
-routes.put("/updateCustomer", authController.updateCustomer);
+routes.put("/updateCustomer/:id", authController.updateCustomer);
 routes.get("/customers", authController.getCustomers);
+routes.get("/customers/search/:name", authController.searchCustomersByName);
+routes.get("/customers/:id", authController.fetchCustomerById);
 routes.delete("/deleteAllAccount", authController.deleteAccount);
 routes.delete("/deleteCustomerAccount", authController.deleteCustomerAccount);
 
