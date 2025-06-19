@@ -1,0 +1,369 @@
+import Receipt from "../../model/receipt.model.js";
+import SalesBook from "../../model/salesBook.model.js";
+import User from "../../model/user.model.js";
+import PDFDocument from "pdfkit";
+import PDFTable from 'pdfkit-table';
+import bcrypt from "bcrypt";
+
+// Create a new receipt
+
+
+export const registration = async (req, res) => {
+  try {
+    const { name, userName, password, role } = req.body;
+
+    // Validate required fields
+    if (!name || !userName || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ userName });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    // Create a new user
+    const newUser = new User({
+      name,
+      userName,
+      password,
+      role,
+    });
+
+    await newUser.save();
+    res.status(201).json({ message: "User registered successfully", user: newUser });
+  } catch (error) {
+    console.error("Error registering user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+
+}
+export const login = async (req, res) => {
+  try {
+    const userName = req.body.userName;
+    const password = req.body.password;
+
+    const existingUser = await User.findOne({ userName: userName });
+
+    if (!existingUser) {
+      throw new Error("Username or password not registered");
+    }
+
+    const isMatch = await bcrypt.compare(password, existingUser.password);
+    console.log(isMatch);
+
+    if (!isMatch) {
+      throw new Error("Invalid credentials");
+    }
+
+    const payload = {
+      id: existingUser._id,
+      userName: existingUser.userName,
+      name: existingUser.name,
+    };
+
+    const secret = process.env.JWT_SECRET;
+
+    const jwtOptions = {
+      expiresIn: "12h",
+      // algorithm: "HS256",
+    };
+    const token = jwt.sign(payload, secret, jwtOptions);
+    console.log(token);
+
+    res.status(201).json({
+      success: true,
+      message: `Welcome ${existingUser.userName}`,
+      token: token,
+    });
+  } catch (error) {
+    console.error(error.message);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+    //console.log(error);
+  }
+};
+
+export const logout = (req, res) => { 
+  try {
+    // Destroy the session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      res.status(200).json({ message: "Logged out successfully" });
+    });
+  } catch (error) {
+    console.error("Error during logout:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export const createReceipt = async (req, res) => {
+  try {
+    const {
+      customerName,
+      customerPhoneNumber,
+      items,
+      totalAmount,
+      paymentMethod,
+    } = req.body;
+    const total = items.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
+    // Ensure the total amount matches the calculated total
+    if (totalAmount !== total) {
+      return res
+        .status(400)
+        .json({ error: "Total amount does not match items total" });
+    }
+    // Generate a unique receipt ID
+    const receiptId = `REC-${Date.now()}`;
+
+    // Validate required fields
+    if (
+      !customerName ||
+      !customerPhoneNumber ||
+      !items ||
+      !totalAmount ||
+      !paymentMethod
+    ) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Create a new receipt
+
+    const newReceipt = new Receipt({
+      receiptId,
+      customerName,
+      customerPhoneNumber,
+      items,
+      totalAmount,
+      paymentMethod,
+      dateOfPurchase: new Date(),
+    });
+
+    await newReceipt.save();
+
+    // Create a sales book entry
+    const salesBookEntry = new SalesBook({
+      receiptId: newReceipt.receiptId,
+      customerName: newReceipt.customerName,
+      totalAmount: newReceipt.totalAmount,
+      dateOfPurchase: newReceipt.dateOfPurchase,
+    });
+
+    await salesBookEntry.save();
+
+    res
+      .status(201)
+      .json({
+        message: "Receipt created successfully and added to sales book",
+        receipt: newReceipt,
+      });
+
+       // Generate PDF
+    const doc = new PDFDocument({ margin: 50 });
+    let buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => {
+      const pdfData = Buffer.concat(buffers);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=receipt-${receiptId}.pdf`,
+      });
+      res.send(pdfData);
+    });
+
+    // Register custom font (optional, assuming Helvetica is available)
+    doc.registerFont('Helvetica-Bold', 'Helvetica-Bold');
+
+    // Add logo
+    const logoPath = path.join(__dirname, '../public/logo.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, 50, 30, { width: 100, align: 'center' });
+      doc.moveDown(4);
+    } else {
+      console.warn('Logo file not found, skipping logo.');
+    }
+
+    // Company details
+    doc.font('Helvetica-Bold').fontSize(16).text(newReceipt.companyName, { align: 'center' });
+    doc.font('Helvetica').fontSize(12).text(newReceipt.companyAddress, { align: 'center' });
+    doc.moveDown(1);
+
+    // Receipt title
+    doc.font('Helvetica-Bold').fontSize(20).text('Receipt', { align: 'center' });
+    doc.moveDown(1);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
+    doc.moveDown(1);
+
+    // Receipt details
+    doc.font('Helvetica').fontSize(12);
+    doc.text(`Receipt ID: ${receiptId}`, 50, doc.y);
+    doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
+    doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 50, doc.y + 20);
+    doc.text(`Payment Method: ${paymentMethod}`, 50, doc.y + 20);
+    doc.moveDown(2);
+
+    // Items table
+    const table = {
+      headers: ['Item', 'Quantity', 'Price', 'Subtotal'],
+      rows: items.map(item => [
+        item.name,
+        item.quantity.toString(),
+        `$${item.price.toFixed(2)}`,
+        `$${(item.quantity * item.price).toFixed(2)}`,
+      ]),
+    };
+
+    doc.table(table, {
+      prepareHeader: () => doc.font('Helvetica-Bold').fontSize(12),
+      prepareRow: () => doc.font('Helvetica').fontSize(10),
+      width: 500,
+      padding: 5,
+      columnSpacing: 10,
+      x: 50,
+      y: doc.y,
+      headerColor: '#e5e7eb', // Light gray background for headers
+      divider: {
+        header: { disabled: false, width: 1, opacity: 1 },
+        horizontal: { disabled: false, width: 0.5, opacity: 0.5 },
+      },
+    });
+
+    // Total
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
+    doc.moveDown(1);
+    doc.font('Helvetica-Bold').fontSize(14).text(`Total: $${totalAmount.toFixed(2)}`, { align: 'right' });
+
+    doc.end();
+  } catch (error) {
+    console.error("Error creating receipt:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getAllReceipts = async (req, res) => {
+  try {
+    const receipts = await Receipt.find().sort({ createdAt: -1 });
+    res.status(200).json(receipts);
+  } catch (error) {
+    console.error("Error fetching receipts:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getSalesBook = async (req, res) => {
+  try {
+    const salesBook = await SalesBook.find().sort({ dateOfPurchase: -1 });
+    res.status(200).json(salesBook);
+  } catch (error) {
+    console.error("Error fetching sales book:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const deleteReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const receipt = await Receipt.findByIdAndDelete(id);
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+    await SalesBook.deleteOne({ receiptId: receipt.receiptId });
+    res.status(200).json({ message: "Receipt deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting receipt:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const deleteAllReceipts = async (req, res) => {
+  try {
+    await Receipt.deleteMany();
+    await SalesBook.deleteMany();
+    res.status(200).json({ message: "All receipts deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting all receipts:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const deleteAllSalesBookEntries = async (req, res) => {
+  try {
+    await SalesBook.deleteMany();
+    res.status(200).json({ message: "All sales book entries deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting all sales book entries:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      customerName,
+      customerPhoneNumber,
+      items,
+      totalAmount,
+      paymentMethod,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !customerName ||
+      !customerPhoneNumber ||
+      !items ||
+      !totalAmount ||
+      !paymentMethod
+    ) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const updatedReceipt = await Receipt.findByIdAndUpdate(
+      id,
+      {
+        customerName,
+        customerPhoneNumber,
+        items,
+        totalAmount,
+        paymentMethod,
+        dateOfPurchase: new Date(),
+      },
+      { new: true }
+    );
+
+    if (!updatedReceipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    // Update the sales book entry
+    await SalesBook.updateOne(
+      { receiptId: updatedReceipt.receiptId },
+      {
+        customerName: updatedReceipt.customerName,
+        totalAmount: updatedReceipt.totalAmount,
+        dateOfPurchase: updatedReceipt.dateOfPurchase,
+      }
+    );
+
+    res
+      .status(200)
+      .json({
+        message: "Receipt updated successfully",
+        receipt: updatedReceipt,
+      });
+  } catch (error) {
+    console.error("Error updating receipt:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

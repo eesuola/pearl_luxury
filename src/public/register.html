@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opaline Vogue - Register</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="/logo.png" alt="Opaline Vogue Logo" class="logo">
+      <h1>Opaline Vogue Register</h1>
+    </header>
+    <div id="error" class="error"></div>
+    <div class="section">
+      <h2>Register</h2>
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="regUsername">Username:</label>
+          <input type="text" id="regUsername" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password:</label>
+          <input type="password" id="regPassword" name="password" required>
+        </div>
+        <div class="form-group">
+          <label for="regName">Name:</label>
+          <input type="text" id="regName" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="regRole">Role:</label>
+          <input type="text" id="regRole" name="role" required>
+        </div>
+        <button type="submit">Register</button>
+        <p>Already have an account? <a href="/login.html">Login here</a></p>
+      </form>
+    </div>
+  </div>
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value.trim();
+      const name = document.getElementById('regName').value.trim();
+      if (!username || !password || !name) {
+        document.getElementById('error').textContent = 'All fields are required';
+        return;
+      }
+      try {
+        const response = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, name }),
+        });
+        const data = await response.json();
+        document.getElementById('error').textContent = data.message || (data.success ? 'Registration successful' : 'Registration failed');
+        if (data.success) {
+          setTimeout(() => window.location.href = '/', 1000); // Redirect to login after 1 second
+        }
+      } catch (error) {
+        document.getElementById('error').textContent = 'Error during registration';
+      }
+    });
+  </script>
+</body>
+</html>

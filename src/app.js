@@ -6,15 +6,11 @@ import { dirname } from 'path';
 import compression from "compression";
 import path from 'path';
 import session from "express-session";
+import receiptRoutes from "./routes/receipt.routes.js";
 
 
-//Routes imports
 
-import authRoutes from "./routes/auth.routes.js";
-//import customerRoutes from "./routes/customer.routes.js";
-import invoiceRoutes from "./routes/invoice.routes.js";
-import orderRoutes from "./routes/order.routes.js";
-import salesRecordRoutes from "./routes/salesRecord.routes.js";
+//Routes import
 
 const app = express();
 
@@ -30,7 +26,10 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false } // set to true if using HTTPS
 }));
-
+// app.use((req, res, next) => {
+//   res.locals.nonce = crypto.randomBytes(16).toString('base64');
+//   next();
+// });
 app.use(helmet());
 app.use(compression());
 app.use(cors());
@@ -39,13 +38,13 @@ app.use(express.urlencoded({ extended: true }));
 
 
 //API REQUEST
-//app.use("/", productsRoute);
+app.use("/api", receiptRoutes);
+// Serve the HTML file as the root route
 
-app.use("/sales", salesRecordRoutes);
-app.use("/order", orderRoutes);
-//app.use("/customer", customerRoutes);
-app.use("/invoice", invoiceRoutes);
-app.use("/api", authRoutes);
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 //Check endpoint
 
 app.get("/health", (req, res) => {
@@ -55,8 +54,12 @@ app.get("/health", (req, res) => {
     service: "Pearl and Luxury API",
   });
 });
-app.get("/", (req, res) => {
-  res.send(" Pearl and Luxury API");
+app.get('/', (req, res) => {
+  if (req.session.loggedIn) {
+    res.redirect('/dashboard.html');
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  }
 });
 // app.use('*', (req,res) =>{
 //     res.status(404).json({
