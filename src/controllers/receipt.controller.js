@@ -4,21 +4,22 @@ import User from "../../model/user.model.js";
 import PDFDocument from "pdfkit";
 import PDFTable from 'pdfkit-table';
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 // Create a new receipt
 
 
 export const registration = async (req, res) => {
   try {
-    const { name, userName, password, role } = req.body;
+    const { name, email, userName,password, role } = req.body;
 
     // Validate required fields
-    if (!name || !userName || !password) {
+    if (!name || !email || !password || !userName || !role) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ userName });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
@@ -26,6 +27,7 @@ export const registration = async (req, res) => {
     // Create a new user
     const newUser = new User({
       name,
+      email,
       userName,
       password,
       role,
@@ -41,42 +43,17 @@ export const registration = async (req, res) => {
 }
 export const login = async (req, res) => {
   try {
-    const userName = req.body.userName;
-    const password = req.body.password;
-
-    const existingUser = await User.findOne({ userName: userName });
-
-    if (!existingUser) {
-      throw new Error("Username or password not registered");
+   const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
     }
-
-    const isMatch = await bcrypt.compare(password, existingUser.password);
-    console.log(isMatch);
-
-    if (!isMatch) {
-      throw new Error("Invalid credentials");
+    const user = await User.findOne({ email });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-
-    const payload = {
-      id: existingUser._id,
-      userName: existingUser.userName,
-      name: existingUser.name,
-    };
-
-    const secret = process.env.JWT_SECRET;
-
-    const jwtOptions = {
-      expiresIn: "12h",
-      // algorithm: "HS256",
-    };
-    const token = jwt.sign(payload, secret, jwtOptions);
-    console.log(token);
-
-    res.status(201).json({
-      success: true,
-      message: `Welcome ${existingUser.userName}`,
-      token: token,
-    });
+    req.session.loggedIn = true;
+    req.session.userName = user.name; // Ensure this is set
+    res.json({ success: true, name: user.name }); // Explicitly return name
   } catch (error) {
     console.error(error.message);
     res.status(400).json({
@@ -123,7 +100,7 @@ export const createReceipt = async (req, res) => {
         .json({ error: "Total amount does not match items total" });
     }
     // Generate a unique receipt ID
-    const receiptId = `REC-${Date.now()}`;
+    const receiptId = req.body.receiptId || `REC-${Date.now()}`;
 
     // Validate required fields
     if (
@@ -149,6 +126,9 @@ export const createReceipt = async (req, res) => {
     });
 
     await newReceipt.save();
+    const pdfBuffer = await generateReceiptPDF(newReceipt); // Assume this function exists
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdfBuffer);
 
     // Create a sales book entry
     const salesBookEntry = new SalesBook({
@@ -193,8 +173,8 @@ export const createReceipt = async (req, res) => {
     }
 
     // Company details
-    doc.font('Helvetica-Bold').fontSize(16).text(newReceipt.companyName, { align: 'center' });
-    doc.font('Helvetica').fontSize(12).text(newReceipt.companyAddress, { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(16).text(newReceipt,"Opaline Opaque", { align: 'center' });
+    doc.font('Helvetica').fontSize(12).text(newReceipt,"12,Jehovah Witness Ashi-Bodija estate Ibadan", { align: 'center' });
     doc.moveDown(1);
 
     // Receipt title
@@ -245,7 +225,11 @@ export const createReceipt = async (req, res) => {
     doc.font('Helvetica-Bold').fontSize(14).text(`Total: $${totalAmount.toFixed(2)}`, { align: 'right' });
 
     doc.end();
+
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Duplicate receipt ID detected. Please try again.' });
+    }
     console.error("Error creating receipt:", error);
     res.status(500).json({ error: "Internal server error" });
   }

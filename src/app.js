@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
 import helmet from "helmet";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -8,7 +9,7 @@ import path from 'path';
 import session from "express-session";
 import receiptRoutes from "./routes/receipt.routes.js";
 
-
+dotenv.config();
 
 //Routes import
 
@@ -21,16 +22,28 @@ app.use(express.static(path.join(__dirname, 'public')));
 //Middlewares
 //session middleware
 app.use(session({
-  secret: "yourSecretKeyHere", // change to a secure key in production
+  secret: process.env.SESSION_SECRET || "yourSecretKeyHere",
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // set to true if using HTTPS
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // Only secure in production with HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
 }));
 // app.use((req, res, next) => {
 //   res.locals.nonce = crypto.randomBytes(16).toString('base64');
 //   next();
 // });
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+    },
+  },
+}));
 app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));

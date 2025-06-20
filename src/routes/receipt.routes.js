@@ -1,11 +1,13 @@
 import express from 'express';
-import {registration, login, getAllReceipts, createReceipt, updateReceipt, deleteReceipt, getSalesBook, deleteAllReceipts, deleteAllSalesBookEntries } from '../controllers/receipt.controller.js';
+import {registration, login,logout, getAllReceipts, createReceipt, updateReceipt, deleteReceipt, getSalesBook, deleteAllReceipts, deleteAllSalesBookEntries } from '../controllers/receipt.controller.js';
 
 const routes = express.Router();
 // Route to create a new admin user
 routes.post ('/register', registration);
 // Route to login an admin user
 routes.post ('/login', login);
+// Route to logout an admin user
+routes.post ('/logout', logout);
 // Route to create a new receipt
 routes.post ('/create-receipt', createReceipt);
 // Route to get all receipts
