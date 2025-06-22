@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 // Define the receipt schema
 const receiptSchema = new mongoose.Schema({
-  receiptId: { type: String, required: true, unique: true },
+  receiptId: { type: String, required: true, unique: true, trim: true },
   customerName: { type: String, required: true },
   customerPhoneNumber: { type: String, required: true },
   items: [

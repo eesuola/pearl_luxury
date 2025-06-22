@@ -4,7 +4,6 @@ import User from "../../model/user.model.js";
 import PDFDocument from "pdfkit";
 import PDFTable from 'pdfkit-table';
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 
 // Create a new receipt
 
