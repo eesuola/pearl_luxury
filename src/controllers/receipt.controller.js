@@ -1,10 +1,19 @@
 import Receipt from "../../model/receipt.model.js";
 import SalesBook from "../../model/salesBook.model.js";
 import User from "../../model/user.model.js";
+import Counter from "../../model/counter.model.js";
 import PDFDocument from "pdfkit";
 import PDFTable from 'pdfkit-table';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import moment from 'moment';
 import bcrypt from "bcrypt";
 
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 // Create a new receipt
 
 
@@ -78,12 +87,26 @@ export const logout = (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+const generateReceiptId = async () => {
+  const today = moment().format('YYYYMMDD'); // e.g. 20250622
+  const counterId = `receipt-${today}`;
+  const prefix = 'RCPT';
 
+  const counter = await Counter.findByIdAndUpdate(
+    counterId,
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  const sequence = String(counter.seq).padStart(4, '0');
+  return `${prefix}-${today}-${sequence}`;
+};
 export const createReceipt = async (req, res) => {
   try {
     const {
       customerName,
       customerPhoneNumber,
+      description,
       items,
       totalAmount,
       paymentMethod,
@@ -99,19 +122,21 @@ export const createReceipt = async (req, res) => {
         .json({ error: "Total amount does not match items total" });
     }
     // Generate a unique receipt ID
-    const receiptId = req.body.receiptId || `REC-${Date.now()}`;
+    const receiptId = await generateReceiptId();
+
 
     // Validate required fields
     if (
       !customerName ||
       !customerPhoneNumber ||
+      !description ||
       !items ||
       !totalAmount ||
       !paymentMethod
     ) {
       return res.status(400).json({ error: "All fields are required" });
     }
-
+    
     // Create a new receipt
 
     const newReceipt = new Receipt({
@@ -123,28 +148,25 @@ export const createReceipt = async (req, res) => {
       paymentMethod,
       dateOfPurchase: new Date(),
     });
-
+    console.log('About to save receipt with ID:', receiptId);
     await newReceipt.save();
-    const pdfBuffer = await generateReceiptPDF(newReceipt); // Assume this function exists
-    res.setHeader('Content-Type', 'application/pdf');
-    res.send(pdfBuffer);
 
     // Create a sales book entry
     const salesBookEntry = new SalesBook({
-      receiptId: newReceipt.receiptId,
-      customerName: newReceipt.customerName,
-      totalAmount: newReceipt.totalAmount,
+      receiptId,
+      customerName,
+      totalAmount,
       dateOfPurchase: newReceipt.dateOfPurchase,
     });
 
     await salesBookEntry.save();
 
-    res
-      .status(201)
-      .json({
-        message: "Receipt created successfully and added to sales book",
-        receipt: newReceipt,
-      });
+    // res
+    //   .status(201)
+    //   .json({
+    //     message: "Receipt created successfully and added to sales book",
+    //     receipt: newReceipt,
+    //   });
 
        // Generate PDF
     const doc = new PDFDocument({ margin: 50 });
@@ -172,8 +194,9 @@ export const createReceipt = async (req, res) => {
     }
 
     // Company details
-    doc.font('Helvetica-Bold').fontSize(16).text(newReceipt,"Opaline Opaque", { align: 'center' });
-    doc.font('Helvetica').fontSize(12).text(newReceipt,"12,Jehovah Witness Ashi-Bodija estate Ibadan", { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(16).text("Opaline Opaque", { align: 'center' });
+    doc.font('Helvetica').fontSize(12).text("12, Jehovah Witness Ashi-Bodija estate Ibadan", { align: 'center' });
+
     doc.moveDown(1);
 
     // Receipt title

@@ -75,11 +75,11 @@
     try {
       const response = await fetch('/api/logout', { method: 'POST' });
       const data = await response.json();
-      if (data.success) {
+      if (response.ok) {
         isLoggedIn = false;
         window.sessionStorage.removeItem('loggedIn');
         window.sessionStorage.removeItem('userName');
-        window.location.href = '/api/login';
+        window.location.href = "/login.html";
       } else {
         document.getElementById('error').textContent = data.message || 'Logout failed';
       }
@@ -151,7 +151,7 @@
     document.getElementById('totalAmount').value = total.toFixed(2);
 
     const data = {
-      receiptId: `REC-${Date.now()}`, // Generate a unique receipt ID
+      // receiptId: `REC-${Date.now()}`, // Generate a unique receipt ID
       customerName,
       customerPhoneNumber,
       items: validItems,
