@@ -30,6 +30,10 @@
             <label for="customerPhoneNumber">Customer Phone Number:</label>
             <input type="text" id="customerPhoneNumber" name="customerPhoneNumber" required>
           </div>
+          <div class="form-group">
+            <label for="description">Description:</label>
+            <input type="text" id="description" name="description" required>
+          </div>
           <div id="itemsContainer" class="form-group">
             <label>Items:</label>
             <div class="item-row">
@@ -56,6 +60,7 @@
           <button type="submit">Generate Receipt</button>
         </form>
       </div>
+      <div id="createReceiptData" class="data-section"></div>
       <div id="receiptsData" class="data-section"></div>
       <div id="salesBookData" class="data-section"></div>
     </div>
@@ -123,10 +128,11 @@
 
     const customerName = document.getElementById('customerName').value.trim();
     const customerPhoneNumber = document.getElementById('customerPhoneNumber').value.trim();
+    const description = document.getElementById('description').value.trim();
     const paymentMethod = document.getElementById('paymentMethod').value;
     const items = document.querySelectorAll('.item-row');
 
-    if (!customerName || !customerPhoneNumber || !paymentMethod || items.length === 0) {
+    if (!customerName || !customerPhoneNumber || !description || !paymentMethod || items.length === 0) {
       document.getElementById('error').textContent = 'All fields are required';
       return;
     }
@@ -151,9 +157,10 @@
     document.getElementById('totalAmount').value = total.toFixed(2);
 
     const data = {
-      // receiptId: `REC-${Date.now()}`, // Generate a unique receipt ID
+  
       customerName,
       customerPhoneNumber,
+      description,
       items: validItems,
       totalAmount: total,
       paymentMethod,
@@ -162,6 +169,7 @@
     console.log('Submitting data:', data); // Debug log
 
     try {
+      //document.getElementById('salesBookData').innerHTML = '';
       const response = await fetch('http://localhost:5050/api/create-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,7 +184,12 @@
         document.body.appendChild(link);
         link.click();
         link.remove();
-        fetchData();
+        document.getElementById('receiptsData').innerHTML = '';
+        document.getElementById('salesBookData').innerHTML = '';
+        document.getElementById('createReceiptData').innerHTML = '<p>Receipt created successfully!</p>';
+        // Reset form
+        document.getElementById('receiptFormInner').reset();
+       //document.getElementById('getReceiptsBtn').click();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate receipt');
@@ -188,12 +201,19 @@
 
   document.getElementById('createReceiptBtn').addEventListener('click', () => {
     if (!isLoggedIn) return;
+
+     document.getElementById('receiptsData').innerHTML = '';
+    document.getElementById('salesBookData').innerHTML = '';
+    document.getElementById('createReceiptData').innerHTML = '';
     document.getElementById('receiptForm').style.display = 'block';
   });
 
   document.getElementById('getReceiptsBtn').addEventListener('click', async () => {
     if (!isLoggedIn) return;
     try {
+      document.getElementById('salesBookData').innerHTML = '';
+      document.getElementById('createReceiptData').innerHTML = '';
+      document.getElementById('receiptForm').style.display = 'none';
       const response = await fetch('/api/receipts');
       const receipts = await response.json();
       document.getElementById('receiptsData').innerHTML = receipts.length
@@ -204,10 +224,12 @@
             <p><strong>Address:</strong> ${r.companyAddress}</p>
             <p><strong>Customer:</strong> ${r.customerName}</p>
             <p><strong>Phone:</strong> ${r.customerPhoneNumber}</p>
-            <p><strong>Total:</strong> $${r.totalAmount}</p>
+            <p><strong>Description:</strong> ${r.description}</p>
+            <p><strong>Total:</strong> #${r.totalAmount}</p>
             <p><strong>Payment Method:</strong> ${r.paymentMethod}</p>
             <p><strong>Date:</strong> ${new Date(r.dateOfPurchase).toLocaleDateString()}</p>
             <p><strong>Items:</strong></p><ul>${r.items.map(i => `<li>${i.itemsPurchased} - Qty: ${i.quantity} - Price: $${i.price}</li>`).join('')}</ul>
+            <button onclick="downloadReceipt('${r.receiptId}')">Download Receipt</button>
           </div>
         `).join('')
         : '<p>No receipts found.</p>';
@@ -215,10 +237,36 @@
       document.getElementById('error').textContent = 'Error fetching receipts';
     }
   });
+  // Add download function
+  window.downloadReceipt = async (receiptId) => {
+    try {
+      const response = await fetch(`http://localhost:5050/api/${receiptId}`, {
+        method: 'GET',
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `receipt-${receiptId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to download receipt');
+      }
+    } catch (error) {
+      document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
+    }
+  };
 
   document.getElementById('getSalesBookBtn').addEventListener('click', async () => {
     if (!isLoggedIn) return;
     try {
+        document.getElementById('receiptsData').innerHTML = '';
+      document.getElementById('createReceiptData').innerHTML = '';
+      document.getElementById('receiptForm').style.display = 'none';
       const response = await fetch('/api/sales-book');
       const salesBook = await response.json();
       document.getElementById('salesBookData').innerHTML = salesBook.length
@@ -228,7 +276,7 @@
             <p><strong>Company:</strong> ${s.companyName}</p>
             <p><strong>Address:</strong> ${s.companyAddress}</p>
             <p><strong>Customer:</strong> ${s.customerName}</p>
-            <p><strong>Total:</strong> $${s.totalAmount}</p>
+            <p><strong>Total:</strong> #${s.totalAmount}</p>
             <p><strong>Date:</strong> ${new Date(s.dateOfPurchase).toLocaleDateString()}</p>
           </div>
         `).join('')
@@ -241,7 +289,7 @@
   function fetchData() {
     if (isLoggedIn) {
       document.getElementById('getReceiptsBtn').click();
-      document.getElementById('getSalesBookBtn').click();
+      //document.getElementById('getSalesBookBtn').click();
     }
   }
 </script>

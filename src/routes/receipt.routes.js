@@ -1,5 +1,5 @@
 import express from 'express';
-import {registration, login,logout, getAllReceipts, createReceipt, updateReceipt, deleteReceipt, getSalesBook, deleteAllReceipts, deleteAllSalesBookEntries } from '../controllers/receipt.controller.js';
+import {registration, login,logout, getAllReceipts, createReceipt,downloadReceipt, updateReceipt, deleteReceipt, getSalesBook, deleteAllReceipts, deleteAllSalesBookEntries } from '../controllers/receipt.controller.js';
 
 const routes = express.Router();
 // Route to create a new admin user
@@ -14,6 +14,8 @@ routes.post ('/create-receipt', createReceipt);
 routes.get('/receipts', getAllReceipts);
 // Routes to get all sales book entries
 routes.get('/sales-book', getSalesBook);
+// // Route to redownload a  receipt
+routes.get ('/:receiptId', downloadReceipt);
 
 // Route to delete a receipt
 routes.delete('/receipts/:id', deleteReceipt);

@@ -143,6 +143,7 @@ export const createReceipt = async (req, res) => {
       receiptId,
       customerName,
       customerPhoneNumber,
+      description,
       items,
       totalAmount,
       paymentMethod,
@@ -155,6 +156,7 @@ export const createReceipt = async (req, res) => {
     const salesBookEntry = new SalesBook({
       receiptId,
       customerName,
+      description,
       totalAmount,
       dateOfPurchase: newReceipt.dateOfPurchase,
     });
@@ -210,6 +212,7 @@ export const createReceipt = async (req, res) => {
     doc.text(`Receipt ID: ${receiptId}`, 50, doc.y);
     doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
     doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
+    doc.text(`Description: ${description}`, 50, doc.y + 20);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 50, doc.y + 20);
     doc.text(`Payment Method: ${paymentMethod}`, 50, doc.y + 20);
     doc.moveDown(2);
@@ -256,6 +259,102 @@ export const createReceipt = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const downloadReceipt = async (req, res) => {
+  try {
+    const { receiptId } = req.params;
+    const receipt = await Receipt.findOne({ receiptId });
+    if (!receipt) {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+    const { customerName, customerPhoneNumber, description,items, totalAmount, paymentMethod, dateOfPurchase } = receipt;
+    // Generate PDF
+    const doc = new PDFDocument({ margin: 50 });
+    let buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => {
+      const pdfData = Buffer.concat(buffers);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=receipt-${receiptId}.pdf`,
+      });
+      res.send(pdfData);
+    });
+
+    // Register custom font (optional, assuming Helvetica is available)
+    doc.registerFont('Helvetica-Bold', 'Helvetica-Bold');
+
+    // Add logo
+    const logoPath = path.join(__dirname, '../public/logo.png');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, 50, 30, { width: 100, align: 'center' });
+      doc.moveDown(4);
+    } else {
+      console.warn('Logo file not found, skipping logo.');
+    }
+
+    // Company details
+    doc.font('Helvetica-Bold').fontSize(16).text("Opaline Opaque", { align: 'center' });
+    doc.font('Helvetica').fontSize(12).text("12, Jehovah Witness Ashi-Bodija estate Ibadan", { align: 'center' });
+
+    doc.moveDown(1);
+
+    // Receipt title
+    doc.font('Helvetica-Bold').fontSize(20).text('Receipt', { align: 'center' });
+    doc.moveDown(1);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
+    doc.moveDown(1);
+
+    // Receipt details
+    doc.font('Helvetica').fontSize(12);
+    doc.text(`Receipt ID: ${receiptId}`, 50, doc.y);
+    doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
+    doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
+    doc.text(`Description: ${description}`, 50, doc.y + 20);
+    doc.text(`Date: ${new Date(dateOfPurchase).toLocaleDateString()}`, 50, doc.y + 20);
+    doc.text(`Payment Method: ${paymentMethod}`, 50, doc.y + 20);
+    doc.moveDown(2);
+
+    // Items table
+    const table = {
+      headers: ['Item', 'Quantity', 'Price', 'Subtotal'],
+      rows: items.map(item => [
+        item.itemsPurchased,
+        item.quantity.toString(),
+        `₦${item.price.toFixed(2)}`,
+        `₦${(item.quantity * item.price).toFixed(2)}`,
+      ]),
+    };
+
+    doc.table(table, {
+      prepareHeader: () => doc.font('Helvetica-Bold').fontSize(12),
+      prepareRow: () => doc.font('Helvetica').fontSize(10),
+      width: 500,
+      padding: 5,
+      columnSpacing: 10,
+      x: 50,
+      y: doc.y,
+      headerColor: '#e5e7eb',
+      divider: {
+        header: { disabled: false, width: 1, opacity: 1 },
+        horizontal: { disabled: false, width: 0.5, opacity: 0.5 },
+      },
+    });
+
+    // Total
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1);
+    doc.font('Helvetica-Bold').fontSize(14).text(`Total: ₦${totalAmount.toFixed(2)}`, { align: 'right' });
+
+    doc.end();
+    
+  } catch (error) {
+    console.error("Error downloading receipt:", error);
+    res.status(500).json({ error: "Internal server error" });
+    
+  }
+}
 
 export const getAllReceipts = async (req, res) => {
   try {
