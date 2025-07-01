@@ -2,12 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Opaline Vogue Dashboard</title>
+  <!-- <link rel="manifest" href="/manifest.json"> -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- <meta name="apple-mobile-web-app-capable" content="yes"> -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="/images/logo-180x180.png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="container">
+   <div class="container">
     <header>
       <img src="/logo.png" alt="Opaline Vogue Logo" class="logo">
       <h1>Opaline Vogue Dashboard</h1>
@@ -21,7 +26,7 @@
       <button id="logoutBtn">Logout</button>
       <div id="receiptForm" style="display:none;">
         <h3>Create Receipt</h3>
-        <form id="receiptFormInner" action="/api/create-receipt" method="POST">
+        <form id="receiptFormInner">
           <div class="form-group">
             <label for="customerName">Customer Name:</label>
             <input type="text" id="customerName" name="customerName" required>
@@ -37,7 +42,7 @@
           <div id="itemsContainer" class="form-group">
             <label>Items:</label>
             <div class="item-row">
-              <input type="text" name="items[0][name]" placeholder="Item Name" required>
+              <input type="text" name="items[0][itemsPurchased]" placeholder="Item Name" required>
               <input type="number" name="items[0][quantity]" placeholder="Qty" min="1" value="1" required>
               <input type="number" name="items[0][price]" placeholder="Price" step="0.01" min="0" required>
               <button type="button" class="remove-item" style="display:none;">Remove</button>
@@ -63,9 +68,29 @@
       <div id="createReceiptData" class="data-section"></div>
       <div id="receiptsData" class="data-section"></div>
       <div id="salesBookData" class="data-section"></div>
+      <div id="editPaymentForm" style="display:none;" class="data-section">
+        <h3>Edit Payment</h3>
+        <form id="editPaymentFormInner">
+          <div class="form-group">
+            <label for="editAmountPaid">Paid Amount:</label>
+            <input type="number" id="editAmountPaid" name="amountPaid" step="0.01" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="editPaymentStatus">Payment Status:</label>
+            <select id="editPaymentStatus" name="paymentStatus" required>
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Partially Paid">Partially Paid</option>
+            </select>
+          </div>
+          <button type="submit">Update Payment</button>
+          <button type="button" id="cancelEdit">Cancel</button>
+        </form>
+      </div>
     </div>
   </div>
   <script>
+    
   let isLoggedIn = !!window.sessionStorage.getItem('loggedIn');
 
   if (isLoggedIn) {
@@ -101,7 +126,7 @@
     const newRow = document.createElement('div');
     newRow.className = 'item-row';
     newRow.innerHTML = `
-      <input type="text" name="items[${index}][name]" placeholder="Item Name" required>
+      <input type="text" name="items[${index}][itemsPurchased]" placeholder="Item Name" required>
       <input type="number" name="items[${index}][quantity]" placeholder="Qty" min="1" value="1" required>
       <input type="number" name="items[${index}][price]" placeholder="Price" step="0.01" min="0" required>
       <button type="button" class="remove-item">Remove</button>
@@ -139,7 +164,7 @@
 
     // Strictly validate and filter items
     const validItems = Array.from(items).map(row => {
-      const name = row.querySelector('input[name$="[name]"]').value.trim();
+        const name = row.querySelector('input[name$="[itemsPurchased]"]').value.trim();
       const quantity = parseFloat(row.querySelector('input[name$="[quantity]"]').value) || 0;
       const price = parseFloat(row.querySelector('input[name$="[price]"]').value) || 0;
       return { itemsPurchased: name, quantity, price }; // Match schema field name
@@ -158,18 +183,20 @@
 
     const data = {
   
-      customerName,
-      customerPhoneNumber,
-      description,
-      items: validItems,
-      totalAmount: total,
-      paymentMethod,
+        customerName,
+        customerPhoneNumber,
+        description,
+        items: validItems,
+        totalAmount: total,
+        amountPaid: 0, // Default to 0 on creation
+        paymentStatus: "Partially Paid", // Default status
+        balanceToPay: total, // Initial balance
+        paymentMethod,
     };
 
     console.log('Submitting data:', data); // Debug log
 
     try {
-      //document.getElementById('salesBookData').innerHTML = '';
       const response = await fetch('http://localhost:5050/api/create-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,19 +245,21 @@
       const receipts = await response.json();
       document.getElementById('receiptsData').innerHTML = receipts.length
         ? '<h3>Past Receipts</h3>' + receipts.map(r => `
-          <div class="data-item">
-            <p><strong>Receipt ID:</strong> ${r.receiptId}</p>
-            <p><strong>Company:</strong> ${r.companyName}</p>
-            <p><strong>Address:</strong> ${r.companyAddress}</p>
-            <p><strong>Customer:</strong> ${r.customerName}</p>
-            <p><strong>Phone:</strong> ${r.customerPhoneNumber}</p>
-            <p><strong>Description:</strong> ${r.description}</p>
-            <p><strong>Total:</strong> #${r.totalAmount}</p>
-            <p><strong>Payment Method:</strong> ${r.paymentMethod}</p>
-            <p><strong>Date:</strong> ${new Date(r.dateOfPurchase).toLocaleDateString()}</p>
-            <p><strong>Items:</strong></p><ul>${r.items.map(i => `<li>${i.itemsPurchased} - Qty: ${i.quantity} - Price: $${i.price}</li>`).join('')}</ul>
-            <button onclick="downloadReceipt('${r.receiptId}')">Download Receipt</button>
-          </div>
+            <div class="data-item">
+              <p><strong>Receipt ID:</strong> ${r.receiptId}</p>
+              <p><strong>Customer:</strong> ${r.customerName}</p>
+              <p><strong>Phone:</strong> ${r.customerPhoneNumber}</p>
+              <p><strong>Description:</strong> ${r.description}</p>
+              <p><strong>Total:</strong> ₦${r.totalAmount.toFixed(2)}</p>
+              <p><strong>Paid:</strong> ₦${r.amountPaid.toFixed(2)}</p>
+              <p><strong>Balance to Pay:</strong> ₦${r.balanceToPay.toFixed(2)}</p>
+              <p><strong>Payment Status:</strong> ${r.paymentStatus}</p>
+              <p><strong>Payment Method:</strong> ${r.paymentMethod}</p>
+              <p><strong>Date:</strong> ${new Date(r.dateOfPurchase).toLocaleDateString()}</p>
+              <p><strong>Items:</strong></p><ul>${r.items.map(i => `<li>${i.itemsPurchased} - Qty: ${i.quantity} - Price: ₦${i.price.toFixed(2)}</li>`).join('')}</ul>
+              ${r.paymentStatus !== "Fully Paid" ? `<button onclick="showEditForm('${r.receiptId}', ${r.totalAmount}, ${r.amountPaid}, '${r.paymentStatus}')">Edit Payment</button>` : ''}
+              <button onclick="downloadReceipt('${r.receiptId}')">Download Receipt</button>
+            </div>
         `).join('')
         : '<p>No receipts found.</p>';
     } catch (error) {
@@ -260,31 +289,68 @@
       document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
     }
   };
+   window.showEditForm = (receiptId, totalAmount, amountPaid, paymentStatus) => {
+      document.getElementById('editPaymentForm').style.display = 'block';
+      document.getElementById('editAmountPaid').value = amountPaid.toFixed(2);
+      document.getElementById('editPaymentStatus').value = paymentStatus;
+      document.getElementById('editPaymentFormInner').onsubmit = async (e) => {
+        e.preventDefault();
+        const newAmountPaid = parseFloat(document.getElementById('editAmountPaid').value) || 0;
+        const newPaymentStatus = document.getElementById('editPaymentStatus').value;
+        if (newAmountPaid > totalAmount) {
+          document.getElementById('error').textContent = 'Paid amount cannot exceed total amount';
+          return;
+        }
+        const balanceToPay = totalAmount - newAmountPaid;
+        const data = { amountPaid: newAmountPaid, paymentStatus: newPaymentStatus, balanceToPay };
 
-  document.getElementById('getSalesBookBtn').addEventListener('click', async () => {
-    if (!isLoggedIn) return;
-    try {
+        try {
+          const response = await fetch(`http://localhost:5050/api/receipts/${receiptId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          if (response.ok) {
+            document.getElementById('editPaymentForm').style.display = 'none';
+            document.getElementById('getReceiptsBtn').click(); // Refresh receipts
+          } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update payment');
+          }
+        } catch (error) {
+          document.getElementById('error').textContent = error.message;
+        }
+      };
+      document.getElementById('cancelEdit').onclick = () => {
+        document.getElementById('editPaymentForm').style.display = 'none';
+      };
+    };
+
+
+ document.getElementById('getSalesBookBtn').addEventListener('click', async () => {
+      if (!isLoggedIn) return;
+      try {
         document.getElementById('receiptsData').innerHTML = '';
-      document.getElementById('createReceiptData').innerHTML = '';
-      document.getElementById('receiptForm').style.display = 'none';
-      const response = await fetch('/api/sales-book');
-      const salesBook = await response.json();
-      document.getElementById('salesBookData').innerHTML = salesBook.length
-        ? '<h3>Sales Book</h3>' + salesBook.map(s => `
-          <div class="data-item">
-            <p><strong>Receipt ID:</strong> ${s.receiptId}</p>
-            <p><strong>Company:</strong> ${s.companyName}</p>
-            <p><strong>Address:</strong> ${s.companyAddress}</p>
-            <p><strong>Customer:</strong> ${s.customerName}</p>
-            <p><strong>Total:</strong> #${s.totalAmount}</p>
-            <p><strong>Date:</strong> ${new Date(s.dateOfPurchase).toLocaleDateString()}</p>
-          </div>
-        `).join('')
-        : '<p>No sales book entries found.</p>';
-    } catch (error) {
-      document.getElementById('error').textContent = 'Error fetching sales book';
-    }
-  });
+        document.getElementById('createReceiptData').innerHTML = '';
+        document.getElementById('receiptForm').style.display = 'none';
+        const response = await fetch('/api/sales-book');
+        const salesBook = await response.json();
+        document.getElementById('salesBookData').innerHTML = salesBook.length
+          ? '<h3>Sales Book</h3>' + salesBook.map(s => `
+            <div class="data-item">
+              <p><strong>Receipt ID:</strong> ${s.receiptId}</p>
+              <p><strong>Customer:</strong> ${s.customerName}</p>
+              <p><strong>Total:</strong> ₦${s.totalAmount.toFixed(2)}</p>
+              <p><strong>Paid:</strong> ₦${s.amountPaid.toFixed(2)}</p>
+              <p><strong>Balance to Pay:</strong> ₦${s.balanceToPay.toFixed(2)}</p>
+              <p><strong>Date:</strong> ${new Date(s.dateOfPurchase).toLocaleDateString()}</p>
+            </div>
+          `).join('')
+          : '<p>No sales book entries found.</p>';
+      } catch (error) {
+        document.getElementById('error').textContent = 'Error fetching sales book';
+      }
+    });
 
   function fetchData() {
     if (isLoggedIn) {
@@ -292,6 +358,15 @@
       //document.getElementById('getSalesBookBtn').click();
     }
   }
+
+   // Register Service Worker
+    // if ('serviceWorker' in navigator) {
+    //   navigator.serviceWorker.register('/sw.js').then(() => {
+    //     console.log('Service Worker registered');
+    //   }).catch((error) => {
+    //     console.error('Service Worker registration failed:', error);
+    //   });
+    // }
 </script>
 </body>
 </html>

@@ -10,6 +10,13 @@ const salesBookSchema = new mongoose.Schema({
   },
     customerName: { type: String, required: true },
     description: { type: String, required: true },
+    paymentStatus: {
+        type: String,
+        required: true,
+        enum: ["Paid", "Unpaid", "Partially Paid"],
+    },
+    amountPaid: { type: Number, required: true },
+    balanceToPay: { type: Number, required: true },
     totalAmount: { type: Number, required: true },
     dateOfPurchase: { type: Date, default: Date.now },
 

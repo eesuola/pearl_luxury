@@ -13,6 +13,13 @@ const receiptSchema = new mongoose.Schema({
       price: { type: Number, required: true },
     },
   ],
+  paymentStatus: {
+    type: String,
+    required: true,
+    enum: ["Paid", "Unpaid", "Partially Paid"],
+  },
+  amountPaid: { type: Number, default: 0, required: true },
+  balanceToPay: { type: Number, required: true, default: 0 },
   totalAmount: { type: Number, required: true },
   paymentMethod: {
     type: String,
