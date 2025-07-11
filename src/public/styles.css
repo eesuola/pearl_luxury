@@ -12,11 +12,13 @@ body {
 }
 
 .container {
-  max-width: 100%;
+  max-width: 100vw;
+  width: 100%;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  box-sizing: border-box;
 }
 
 header {
@@ -35,10 +37,6 @@ header {
   color: red;
   margin-bottom: 1rem;
 }
-
-/* .section {
-  display: none;
-} */
 
 #receiptForm, #createReceiptData, #receiptsData, #salesBookData {
   background: #fff;
@@ -61,24 +59,19 @@ header {
   margin-bottom: 0.25rem;
 }
 
-.form-group input, .form-group select {
-  width: 100%;
-  padding: 0.5rem;
+.form-group input, .form-group select, button {
   font-size: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 0.75em 1em;
 }
 
 .item-row {
-  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
 }
 
 .item-row input {
-  flex: 1;
-  padding: 0.5rem;
-  font-size: 1rem;
+  min-width: 0;
+  flex: 1 1 100px;
 }
 
 .item-row button {
@@ -112,15 +105,29 @@ button:hover {
   background-color: #0056b3;
 }
 
+/* Responsive Headings */
+h1, h2, h3 {
+  font-size: clamp(1.2rem, 4vw, 2rem);
+}
+
 /* Media Queries */
-@media (max-width: 480px) { /* Small phones (e.g., iPhone SE) */
+
+/* Small phones */
+@media (max-width: 480px) {
   .container {
     padding: 0.5rem;
   }
 
   #receiptForm, #createReceiptData, #receiptsData, #salesBookData {
-    padding: 0.75rem;
-    font-size: 0.9rem;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  h1, h2, h3 {
+    font-size: 1.1rem;
   }
 
   .item-row input {
@@ -135,10 +142,12 @@ button:hover {
 
   .logo {
     max-width: 40px;
+    height: auto;
   }
 }
 
-@media (min-width: 481px) and (max-width: 768px) { /* Medium phones (e.g., iPhone 12) */
+/* Medium phones and tablets */
+@media (min-width: 481px) and (max-width: 768px) {
   .container {
     flex-direction: row;
     flex-wrap: wrap;
@@ -150,7 +159,8 @@ button:hover {
   }
 }
 
-@media (min-width: 769px) { /* Larger phones or tablets */
+/* Larger tablets and desktops */
+@media (min-width: 769px) {
   .container {
     flex-direction: row;
     flex-wrap: wrap;
@@ -159,5 +169,19 @@ button:hover {
   #receiptForm, #createReceiptData, #receiptsData, #salesBookData {
     flex: 1 1 calc(33.33% - 0.5rem);
     min-width: 0;
+  }
+}
+
+/* For very small screens */
+@media (max-width: 400px) {
+  h1, h2, h3 {
+    font-size: 1rem;
+  }
+  .logo {
+    max-width: 30px;
+  }
+  .form-group input, .form-group select, button {
+    font-size: 0.9rem;
+    padding: 0.5em 0.7em;
   }
 }
