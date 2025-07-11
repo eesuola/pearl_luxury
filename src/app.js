@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import http from "http";
 import dotenv from "dotenv";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
@@ -13,7 +14,10 @@ dotenv.config();
 
 //Routes import
 
+
+
 const app = express();
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +43,7 @@ app.use(
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
-      defaultSrc: ["'self'"],
+      defaultSrc: ["'self'","https://opaline-vogue.onrender.com/dashboard.html"],
       scriptSrc: ["'self'"], // Avoid 'unsafe-inline' unless 100% necessary
       styleSrc: ["'self'", "'unsafe-inline'"], // Inline styles are usually safe-ish for now
       imgSrc: ["'self'", "data:"],

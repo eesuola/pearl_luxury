@@ -226,7 +226,7 @@
     console.log('Submitting data:', data); // Debug log
 
     try {
-      const response = await fetch('http://localhost:5050/api/create-receipt', {
+      const response = await fetch('/api/create-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -296,11 +296,9 @@
     }
   });
   // Add download function
-  window.downloadReceipt = async (orderId) => {
-    try {
-      const response = await fetch(`http://localhost:5050/api/${orderId}`, {
-        method: 'GET',
-      });
+  window.downloadReceipt = (orderId) => {
+  window.open(`/api/${orderId}`, '_blank');
+};
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -314,10 +312,10 @@
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to download receipt');
       }
-    } catch (error) {
+     {
       document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
     }
-  };
+
    window.showEditForm = (orderId, totalAmount, amountPaid, paymentStatus) => {
       document.getElementById('editPaymentForm').style.display = 'block';
       document.getElementById('editAmountPaid').value = amountPaid.toFixed(2);
@@ -334,7 +332,7 @@
         const data = { amountPaid: newAmountPaid, paymentStatus: newPaymentStatus, balanceToPay };
 
         try {
-          const response = await fetch(`http://localhost:5050/api/receipts/${orderId}`, {
+          const response = await fetch(`/api/receipts/${orderId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
