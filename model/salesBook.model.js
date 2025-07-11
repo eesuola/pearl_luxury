@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const salesBookSchema = new mongoose.Schema({
-    receiptId: { type: String, required: true, unique: true },
+    orderId: { type: String, required: true, unique: true },
     companyName: { type: String, required: true, default: "Opaline Opaque" },
   companyAddress: {
     type: String,

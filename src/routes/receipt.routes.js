@@ -15,7 +15,7 @@ routes.get('/receipts', getAllReceipts);
 // Routes to get all sales book entries
 routes.get('/sales-book', getSalesBook);
 // // Route to redownload a  receipt
-routes.get ('/:receiptId', downloadReceipt);
+routes.get ('/:orderId', downloadReceipt);
 
 // Route to delete a receipt
 routes.delete('/receipts/:id', deleteReceipt);

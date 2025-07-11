@@ -1,7 +1,9 @@
 import Receipt from "../../model/receipt.model.js";
+import mongoose from 'mongoose';
 import SalesBook from "../../model/salesBook.model.js";
 import User from "../../model/user.model.js";
-import Counter from "../../model/counter.model.js";
+import { getNextSequenceValueSimple } from "../../model/counter.model.js";
+import { v4 as uuidv4 } from 'uuid';
 import PDFDocument from "pdfkit";
 import PDFTable from "pdfkit-table";
 import fs from "fs";
@@ -10,6 +12,7 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import moment from "moment";
 import bcrypt from "bcrypt";
+import Counter from "../../model/counter.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -90,20 +93,15 @@ export const logout = (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-const generateReceiptId = async () => {
-  const today = moment().format("YYYYMMDD"); // e.g. 20250622
-  const counterId = `receipt-${today}`;
-  const prefix = "RCPT";
-
-  const counter = await Counter.findByIdAndUpdate(
-    counterId,
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-
-  const sequence = String(counter.seq).padStart(4, "0");
-  return `${prefix}-${today}-${sequence}`;
-};
+// const generateOrderId = async (sequenceName) => {
+// const counter = await Counter.findOneAndUpdate(
+//     { _id: sequenceName },
+//     { $inc: { sequence_value: 1 } },
+//     { new: true, upsert: true }
+//   );
+//   return counter.sequence_value;
+// };
+// Improved createReceipt function with better error handling
 export const createReceipt = async (req, res) => {
   try {
     const {
@@ -117,190 +115,168 @@ export const createReceipt = async (req, res) => {
       balanceToPay,
       paymentStatus,
     } = req.body;
-    const total = items.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0
-    );
-    // Ensure the total amount matches the calculated total
+
+    // Validation
+    const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
     if (totalAmount !== total) {
-      return res
-        .status(400)
-        .json({ error: "Total amount does not match items total" });
+      return res.status(400).json({ error: "Total amount does not match items total" });
     }
 
-    const paid = typeof amountPaid === "number" ? amountPaid : 0;
-    const balance =
-      typeof balanceToPay === "number" ? balanceToPay : totalAmount - paid;
-
-    // Generate a unique receipt ID
-    const receiptId = await generateReceiptId();
-
-    // Validate required fields
-    if (
-      !customerName ||
-      !customerPhoneNumber ||
-      !description ||
-      !items ||
-      !totalAmount ||
-      !amountPaid ||
-      !balanceToPay ||
-      !paymentStatus ||
-      !paymentMethod
-    ) {
+    if (!customerName || !customerPhoneNumber || !description || !items || 
+        totalAmount == null || amountPaid == null || balanceToPay == null || 
+        !paymentStatus || !paymentMethod) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Create a new receipt
+    const paid = Number(amountPaid) || 0;
+    const balance = Number(balanceToPay) || (Number(totalAmount) - paid);
 
-    const newReceipt = new Receipt({
-      receiptId,
-      customerName,
-      customerPhoneNumber,
-      description,
-      items,
-      totalAmount,
-      paymentMethod,
-      amountPaid: paid,
-      balanceToPay: balance,
-      paymentStatus: paymentStatus || "unpaid",
-      dateOfPurchase: new Date(),
-    });
-    console.log("About to save receipt with ID:", receiptId);
-    await newReceipt.save();
-
-    // Create a sales book entry
-    const salesBookEntry = new SalesBook({
-      receiptId,
-      customerName,
-      description,
-      totalAmount,
-      amountPaid: paid,
-      balanceToPay: balance,
-      paymentStatus: paymentStatus || "Unpaid",
-      dateOfPurchase: newReceipt.dateOfPurchase,
-    });
-
-    await salesBookEntry.save();
-
-    // res
-    //   .status(201)
-    //   .json({
-    //     message: "Receipt created successfully and added to sales book",
-    //     receipt: newReceipt,
-    //   });
-
-    // Generate PDF
-    const doc = new PDFDocument({ margin: 50 });
-    let buffers = [];
-    doc.on("data", buffers.push.bind(buffers));
-    doc.on("end", () => {
-      const pdfData = Buffer.concat(buffers);
-      res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=receipt-${receiptId}.pdf`,
+    // Use transaction for atomic operations
+    const session = await mongoose.startSession();
+    
+    try {
+      const result = await session.withTransaction(async () => {
+        // Get next sequence number within transaction
+        const sequence = await getNextSequenceValueSimple('orderid');
+        const today = moment().format("YYYYMMDD");
+        const orderId = `ORD${today}-${String(sequence).padStart(4, '0')}`; // e.g. ORD20250711-0012
+        // const orderId = `ORD${String(sequence).padStart(5, '0')}`;
+        
+        console.log("About to save receipt with ID:", orderId);
+        
+        // Create receipt
+        const newReceipt = new Receipt({
+          orderId,
+          customerName,
+          customerPhoneNumber,
+          description,
+          items,
+          totalAmount,
+          paymentMethod,
+          amountPaid: paid,
+          balanceToPay: balance,
+          paymentStatus: paymentStatus || "unpaid",
+          dateOfPurchase: new Date(),
+        });
+        
+        await newReceipt.save({ session });
+        
+        // Create sales book entry
+        const salesBookEntry = new SalesBook({
+          orderId,
+          receiptId: orderId,
+          customerName,
+          description,
+          totalAmount,
+          amountPaid: paid,
+          balanceToPay: balance,
+          paymentStatus: paymentStatus || "Unpaid",
+          dateOfPurchase: newReceipt.dateOfPurchase,
+        });
+        
+        await salesBookEntry.save({ session });
+        
+        console.log("Receipt created successfully:", orderId);
+        return { orderId, newReceipt };
       });
-      res.send(pdfData);
-    });
+      
+      // Generate PDF (outside transaction since it's not database related)
+      const { orderId, newReceipt } = result;
+      
+      const doc = new PDFDocument({ margin: 50 });
+      const fontPath = path.join(__dirname, "../public/DejaVuSans.ttf");
+      doc.registerFont("NairaFont", fontPath);
+      doc.font("NairaFont");
 
-    // Register custom font (optional, assuming Helvetica is available)
-    doc.registerFont("Helvetica-Bold", "Helvetica-Bold");
+      let buffers = [];
+      doc.on("data", buffers.push.bind(buffers));
+      doc.on("end", () => {
+        const pdfData = Buffer.concat(buffers);
+        res.set({
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename=receipt-${orderId}.pdf`,
+        });
+        res.send(pdfData);
+      });
 
-    // Add logo
-    const logoPath = path.join(__dirname, "../public/logo.png");
-    if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, 50, 30, { width: 100, align: "center" });
-      doc.moveDown(4);
-    } else {
-      console.warn("Logo file not found, skipping logo.");
+      // Add logo
+      const logoPath = path.join(__dirname, "../public/logo.png");
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 50, 50, { width: 100, align: "center" });
+        doc.moveDown(4);
+      }
+
+      // Company details
+      doc.font("NairaFont").fontSize(16).text("Opaline Opaque", { align: "center" });
+      doc.font("NairaFont").fontSize(12).text("12, Jehovah Witness Ashi-Bodija estate Ibadan", { align: "center" });
+      doc.moveDown(1);
+
+      // Receipt title
+      doc.font("NairaFont").fontSize(20).text("Receipt", { align: "center" });
+      doc.moveDown(1);
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown(1);
+
+      // Receipt details
+      doc.font("NairaFont").fontSize(12);
+      doc.text(`Order ID: ${orderId}`, 50, doc.y);
+      doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
+      doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
+      doc.text(`Description: ${description}`, 50, doc.y + 20);
+      doc.text(`Paid: ₦${paid.toFixed(2)}`, 50, doc.y + 20);
+      doc.text(`Balance to Pay: ₦${balance.toFixed(2)}`, 50, doc.y + 20);
+      doc.text(`Payment Status: ${paymentStatus}`, 50, doc.y + 20);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 50, doc.y + 20);
+      doc.text(`Payment Method: ${paymentMethod}`, 50, doc.y + 20);
+      doc.moveDown(2);
+
+      // Items table
+      const table = {
+        headers: ["Item", "Quantity", "Price", "Subtotal"],
+        rows: items.map((item) => [
+          item.itemsPurchased,
+          item.quantity.toString(),
+          `₦${item.price.toFixed(2)}`,
+          `₦${(item.quantity * item.price).toFixed(2)}`,
+        ]),
+      };
+
+      doc.table(table, {
+        prepareHeader: () => doc.font("NairaFont").fontSize(12),
+        prepareRow: () => doc.font("NairaFont").fontSize(10),
+        width: 500,
+        padding: 5,
+        columnSpacing: 10,
+        x: 50,
+        y: doc.y,
+        headerColor: "#e5e7eb",
+        divider: {
+          header: { disabled: false, width: 1, opacity: 1 },
+          horizontal: { disabled: false, width: 0.5, opacity: 0.5 },
+        },
+      });
+
+      // Total
+      doc.moveDown(2);
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown(1);
+      doc.font("NairaFont").fontSize(14).text(`Total: ₦${totalAmount.toFixed(2)}`, { align: "right" });
+
+      doc.end();
+      
+    } finally {
+      await session.endSession();
     }
-
-    // Company details
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(16)
-      .text("Opaline Opaque", { align: "center" });
-    doc
-      .font("Helvetica")
-      .fontSize(12)
-      .text("12, Jehovah Witness Ashi-Bodija estate Ibadan", {
-        align: "center",
-      });
-
-    doc.moveDown(1);
-
-    // Receipt title
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(20)
-      .text("Receipt", { align: "center" });
-    doc.moveDown(1);
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
-    doc.moveDown(1);
-
-    // Receipt details
-    doc.font("Helvetica").fontSize(12);
-    doc.text(`Receipt ID: ${receiptId}`, 50, doc.y);
-    doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
-    doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
-    doc.text(`Description: ${description}`, 50, doc.y + 20);
-    doc.text(`Paid: ₦${amountPaid.toFixed(2)}`, 50, doc.y + 20);
-    doc.text(`Balance to Pay: ₦${balanceToPay.toFixed(2)}`, 50, doc.y + 20);
-    doc.text(`Payment Status: ${paymentStatus}`, 50, doc.y + 20);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 50, doc.y + 20);
-    doc.text(`Payment Method: ${paymentMethod}`, 50, doc.y + 20);
-    doc.moveDown(2);
-
-    // Items table
-    const table = {
-      headers: ["Item", "Quantity", "Price", "Subtotal"],
-      rows: items.map((item) => [
-        item.itemsPurchased,
-        item.quantity.toString(),
-        `$${item.price.toFixed(2)}`,
-        `$${(item.quantity * item.price).toFixed(2)}`,
-      ]),
-    };
-
-    doc.table(table, {
-      prepareHeader: () => doc.font("Helvetica-Bold").fontSize(12),
-      prepareRow: () => doc.font("Helvetica").fontSize(10),
-      width: 500,
-      padding: 5,
-      columnSpacing: 10,
-      x: 50,
-      y: doc.y,
-      headerColor: "#e5e7eb", // Light gray background for headers
-      divider: {
-        header: { disabled: false, width: 1, opacity: 1 },
-        horizontal: { disabled: false, width: 0.5, opacity: 0.5 },
-      },
-    });
-
-    // Total
-    doc.moveDown(2);
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
-    doc.moveDown(1);
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(14)
-      .text(`Total: $${totalAmount.toFixed(2)}`, { align: "right" });
-
-    doc.end();
+    
   } catch (error) {
-    if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ error: "Duplicate receipt ID detected. Please try again." });
-    }
     console.error("Error creating receipt:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 export const downloadReceipt = async (req, res) => {
   try {
-    const { receiptId } = req.params;
-    const receipt = await Receipt.findOne({ receiptId });
+    const { orderId } = req.params;
+    const receipt = await Receipt.findOne({ orderId });
     if (!receipt) {
       return res.status(404).json({ error: "Receipt not found" });
     }
@@ -311,6 +287,9 @@ export const downloadReceipt = async (req, res) => {
       items,
       totalAmount,
       paymentMethod,
+      amountPaid,
+      balanceToPay,
+      paymentStatus,
       dateOfPurchase,
     } = receipt;
     // Generate PDF
@@ -321,13 +300,14 @@ export const downloadReceipt = async (req, res) => {
       const pdfData = Buffer.concat(buffers);
       res.set({
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=receipt-${receiptId}.pdf`,
+        "Content-Disposition": `attachment; filename=receipt-${orderId}.pdf`,
       });
       res.send(pdfData);
     });
 
-    // Register custom font (optional, assuming Helvetica is available)
-    doc.registerFont("Helvetica-Bold", "Helvetica-Bold");
+    // Register custom font (optional, assuming NairaFont is available)
+    const fontPath = path.join(__dirname, "../public/DejaVuSans.ttf");
+    doc.registerFont("NairaFont", fontPath);
 
     // Add logo
     const logoPath = path.join(__dirname, "../public/logo.png");
@@ -340,11 +320,11 @@ export const downloadReceipt = async (req, res) => {
 
     // Company details
     doc
-      .font("Helvetica-Bold")
+      .font("NairaFont")
       .fontSize(16)
       .text("Opaline Opaque", { align: "center" });
     doc
-      .font("Helvetica")
+      .font("NairaFont")
       .fontSize(12)
       .text("12, Jehovah Witness Ashi-Bodija estate Ibadan", {
         align: "center",
@@ -353,17 +333,14 @@ export const downloadReceipt = async (req, res) => {
     doc.moveDown(1);
 
     // Receipt title
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(20)
-      .text("Receipt", { align: "center" });
+    doc.font("NairaFont").fontSize(20).text("Receipt", { align: "center" });
     doc.moveDown(1);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke(); // Horizontal line
     doc.moveDown(1);
 
     // Receipt details
-    doc.font("Helvetica").fontSize(12);
-    doc.text(`Receipt ID: ${receiptId}`, 50, doc.y);
+    doc.font("NairaFont").fontSize(12);
+    doc.text(`Order ID: ${orderId}`, 50, doc.y);
     doc.text(`Customer: ${customerName}`, 50, doc.y + 20);
     doc.text(`Phone: ${customerPhoneNumber}`, 50, doc.y + 20);
     doc.text(`Description: ${description}`, 50, doc.y + 20);
@@ -390,8 +367,8 @@ export const downloadReceipt = async (req, res) => {
     };
 
     doc.table(table, {
-      prepareHeader: () => doc.font("Helvetica-Bold").fontSize(12),
-      prepareRow: () => doc.font("Helvetica").fontSize(10),
+      prepareHeader: () => doc.font("NairaFont").fontSize(12),
+      prepareRow: () => doc.font("NairaFont").fontSize(10),
       width: 500,
       padding: 5,
       columnSpacing: 10,
@@ -409,7 +386,7 @@ export const downloadReceipt = async (req, res) => {
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
     doc.moveDown(1);
     doc
-      .font("Helvetica-Bold")
+      .font("NairaFont")
       .fontSize(14)
       .text(`Total: ₦${totalAmount.toFixed(2)}`, { align: "right" });
 
@@ -447,7 +424,7 @@ export const deleteReceipt = async (req, res) => {
     if (!receipt) {
       return res.status(404).json({ error: "Receipt not found" });
     }
-    await SalesBook.deleteOne({ receiptId: receipt.receiptId });
+    await SalesBook.deleteOne({ orderId: receipt.orderId });
     res.status(200).json({ message: "Receipt deleted successfully" });
   } catch (error) {
     console.error("Error deleting receipt:", error);
@@ -459,6 +436,7 @@ export const deleteAllReceipts = async (req, res) => {
   try {
     await Receipt.deleteMany();
     await SalesBook.deleteMany();
+    await Counter.deleteMany({});
     res.status(200).json({ message: "All receipts deleted successfully" });
   } catch (error) {
     console.error("Error deleting all receipts:", error);
@@ -520,7 +498,7 @@ export const updateReceipt = async (req, res) => {
     }
 
     const updatedReceipt = await Receipt.findOneAndUpdate(
-      {receiptId: id},
+      { orderId: id },
       updateFields,
       { new: true }
     );
@@ -531,7 +509,7 @@ export const updateReceipt = async (req, res) => {
 
     // Update the sales book entry to match the updated receipt
     await SalesBook.updateOne(
-      { receiptId: updatedReceipt.receiptId },
+      { orderId: updatedReceipt.orderId },
       {
         customerName: updatedReceipt.customerName,
         description: updatedReceipt.description,
@@ -597,13 +575,13 @@ export const updateReceipt = async (req, res) => {
 //       return res.status(404).json({ error: "Receipt not found" });
 //     }
 
-//     // Update the sales book entry
-//     await SalesBook.updateOne(
-//       { receiptId: updatedReceipt.receiptId },
-//       {
-//         customerName: updatedReceipt.customerName,
-//         totalAmount: updatedReceipt.totalAmount,
-//         dateOfPurchase: updatedReceipt.dateOfPurchase,
+// Update the sales book entry
+// await SalesBook.updateOne(
+//   { orderId: updatedReceipt.orderId },
+//   {
+//     customerName: updatedReceipt.customerName,
+//     totalAmount: updatedReceipt.totalAmount,
+//     dateOfPurchase: updatedReceipt.dateOfPurchase,
 //       }
 //     );
 

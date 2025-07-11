@@ -55,6 +55,22 @@
             <button type="button" id="calculateTotal">Calculate Total</button>
           </div>
           <div class="form-group">
+            <label for="amountPaid">Amount Paid:</label>
+            <input type="number" id="amountPaid" name="amountPaid" step="0.01" min="0" value="0" required>
+          </div>
+          <div class="form-group">
+            <label for="paymentStatus">Payment Status:</label>
+            <select id="paymentStatus" name="paymentStatus" required>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Partially Paid">Partially Paid</option>
+              <option value="Paid">Paid</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="balanceToPay">Balance to Pay:</label>
+            <input type="number" id="balanceToPay" name="balanceToPay" readonly>
+          </div>
+          <div class="form-group">
             <label for="paymentMethod">Payment Method:</label>
             <select id="paymentMethod" name="paymentMethod" required>
               <option value="Cash">Cash</option>
@@ -145,7 +161,16 @@
       total += quantity * price;
     });
     document.getElementById('totalAmount').value = total.toFixed(2);
+    updateBalance();
   });
+   document.getElementById('amountPaid').addEventListener('input', updateBalance);
+  document.getElementById('totalAmount').addEventListener('input', updateBalance);
+
+  function updateBalance() {
+    const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+    const paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+    document.getElementById('balanceToPay').value = (total - paid).toFixed(2);
+  }
 
   document.getElementById('receiptFormInner').addEventListener('submit', async (e) => {
     if (!isLoggedIn) return;
@@ -156,6 +181,7 @@
     const description = document.getElementById('description').value.trim();
     const paymentMethod = document.getElementById('paymentMethod').value;
     const items = document.querySelectorAll('.item-row');
+    
 
     if (!customerName || !customerPhoneNumber || !description || !paymentMethod || items.length === 0) {
       document.getElementById('error').textContent = 'All fields are required';
@@ -180,6 +206,9 @@
       total += item.quantity * item.price;
     });
     document.getElementById('totalAmount').value = total.toFixed(2);
+    const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+    const paymentStatus = document.getElementById('paymentStatus').value;
+    const balanceToPay = parseFloat(document.getElementById('balanceToPay').value) || 0;
 
     const data = {
   
@@ -188,9 +217,9 @@
         description,
         items: validItems,
         totalAmount: total,
-        amountPaid: 0, // Default to 0 on creation
-        paymentStatus: "Partially Paid", // Default status
-        balanceToPay: total, // Initial balance
+        amountPaid,
+        paymentStatus, // Default status
+        balanceToPay, // Initial balance
         paymentMethod,
     };
 
@@ -216,7 +245,7 @@
         document.getElementById('createReceiptData').innerHTML = '<p>Receipt created successfully!</p>';
         // Reset form
         document.getElementById('receiptFormInner').reset();
-       //document.getElementById('getReceiptsBtn').click();
+        document.getElementById('getReceiptsBtn').click();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate receipt');
@@ -246,7 +275,7 @@
       document.getElementById('receiptsData').innerHTML = receipts.length
         ? '<h3>Past Receipts</h3>' + receipts.map(r => `
             <div class="data-item">
-              <p><strong>Receipt ID:</strong> ${r.receiptId}</p>
+              <p><strong>Order ID:</strong> ${r.orderId}</p>
               <p><strong>Customer:</strong> ${r.customerName}</p>
               <p><strong>Phone:</strong> ${r.customerPhoneNumber}</p>
               <p><strong>Description:</strong> ${r.description}</p>
@@ -257,8 +286,8 @@
               <p><strong>Payment Method:</strong> ${r.paymentMethod}</p>
               <p><strong>Date:</strong> ${new Date(r.dateOfPurchase).toLocaleDateString()}</p>
               <p><strong>Items:</strong></p><ul>${r.items.map(i => `<li>${i.itemsPurchased} - Qty: ${i.quantity} - Price: ₦${i.price.toFixed(2)}</li>`).join('')}</ul>
-              ${r.paymentStatus !== "Fully Paid" ? `<button onclick="showEditForm('${r.receiptId}', ${r.totalAmount}, ${r.amountPaid}, '${r.paymentStatus}')">Edit Payment</button>` : ''}
-              <button onclick="downloadReceipt('${r.receiptId}')">Download Receipt</button>
+              ${r.paymentStatus !== "Fully Paid" ? `<button onclick="showEditForm('${r.orderId}', ${r.totalAmount}, ${r.amountPaid}, '${r.paymentStatus}')">Edit Payment</button>` : ''}
+              <button onclick="downloadReceipt('${r.orderId}')">Download Receipt</button>
             </div>
         `).join('')
         : '<p>No receipts found.</p>';
@@ -267,9 +296,9 @@
     }
   });
   // Add download function
-  window.downloadReceipt = async (receiptId) => {
+  window.downloadReceipt = async (orderId) => {
     try {
-      const response = await fetch(`http://localhost:5050/api/${receiptId}`, {
+      const response = await fetch(`http://localhost:5050/api/${orderId}`, {
         method: 'GET',
       });
       if (response.ok) {
@@ -277,7 +306,7 @@
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `receipt-${receiptId}.pdf`;
+        link.download = `receipt-${orderId}.pdf`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -289,7 +318,7 @@
       document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
     }
   };
-   window.showEditForm = (receiptId, totalAmount, amountPaid, paymentStatus) => {
+   window.showEditForm = (orderId, totalAmount, amountPaid, paymentStatus) => {
       document.getElementById('editPaymentForm').style.display = 'block';
       document.getElementById('editAmountPaid').value = amountPaid.toFixed(2);
       document.getElementById('editPaymentStatus').value = paymentStatus;
@@ -305,7 +334,7 @@
         const data = { amountPaid: newAmountPaid, paymentStatus: newPaymentStatus, balanceToPay };
 
         try {
-          const response = await fetch(`http://localhost:5050/api/receipts/${receiptId}`, {
+          const response = await fetch(`http://localhost:5050/api/receipts/${orderId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -338,7 +367,7 @@
         document.getElementById('salesBookData').innerHTML = salesBook.length
           ? '<h3>Sales Book</h3>' + salesBook.map(s => `
             <div class="data-item">
-              <p><strong>Receipt ID:</strong> ${s.receiptId}</p>
+              <p><strong>Order ID:</strong> ${s.orderId}</p>
               <p><strong>Customer:</strong> ${s.customerName}</p>
               <p><strong>Total:</strong> ₦${s.totalAmount.toFixed(2)}</p>
               <p><strong>Paid:</strong> ₦${s.amountPaid.toFixed(2)}</p>
