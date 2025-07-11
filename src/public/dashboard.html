@@ -299,22 +299,22 @@
   window.downloadReceipt = (orderId) => {
   window.open(`/api/${orderId}`, '_blank');
 };
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `receipt-${orderId}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to download receipt');
-      }
-     {
-      document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
-    }
+    //   if (response.ok) {
+    //     const blob = await response.blob();
+    //     const url = window.URL.createObjectURL(blob);
+    //     const link = document.createElement('a');
+    //     link.href = url;
+    //     link.download = `receipt-${orderId}.pdf`;
+    //     document.body.appendChild(link);
+    //     link.click();
+    //     link.remove();
+    //   } else {
+    //     const errorData = await response.json();
+    //     throw new Error(errorData.error || 'Failed to download receipt');
+    //   }
+    //  {
+    //   document.getElementById('error').textContent = `Error downloading receipt: ${error.message}`;
+    // }
 
    window.showEditForm = (orderId, totalAmount, amountPaid, paymentStatus) => {
       document.getElementById('editPaymentForm').style.display = 'block';
